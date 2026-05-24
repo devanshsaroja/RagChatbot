@@ -1,0 +1,19 @@
+# Environment variables — never commit this
+.env
+
+# Virtual environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# ChromaDB data
+data/vectordb/
+
+# Processed chunks
+data/processed/
+
+# Registry
+data/registry.json
