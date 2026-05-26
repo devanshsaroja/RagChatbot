@@ -1,12 +1,14 @@
 from app.retrieval.retriever import (
     retrieve_from_plan,
     retrieve_generic,
+    retrieve_all,
     format_results_for_claude
 )
 from app.registry.registry import (
     list_plans,
     list_generic_documents,
-    get_registry_summary
+    get_registry_summary,
+    get_plan_rules
 )
 
 
@@ -82,6 +84,39 @@ TOOL_DEFINITIONS = [
         }
     },
     {
+        "name": "retrieve_all",
+        "description": (
+            "Search across ALL documents simultaneously — both plan-specific "
+            "and general/regulatory. Use this when no specific plan has been "
+            "selected, or when the question could span multiple plans and "
+            "regulatory sources. More efficient than calling retrieve_from_plan "
+            "and retrieve_generic separately. Results are ranked by relevance "
+            "across the entire document corpus."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": (
+                        "The search query. Be specific — use key terms "
+                        "from the question. Example: 'vesting schedule "
+                        "employer match' or '401k contribution limits 2025'."
+                    )
+                },
+                "top_k": {
+                    "type": "integer",
+                    "description": (
+                        "Number of results to return. Default 8. "
+                        "Use 10-12 for broad cross-plan questions."
+                    ),
+                    "default": 8
+                }
+            },
+            "required": ["query"]
+        }
+    },
+    {
         "name": "enumerate_plans",
         "description": (
             "List all available retirement plans and documents in the system. "
@@ -93,6 +128,28 @@ TOOL_DEFINITIONS = [
             "type": "object",
             "properties": {},
             "required": []
+        }
+    },
+    {
+        "name": "get_plan_facts",
+        "description": (
+            "Retrieve pre-extracted structured facts for a specific plan — "
+            "employer match formula, vesting schedule, eligibility rules, "
+            "plan features. Use this FIRST for simple factual questions about "
+            "a known plan before falling back to vector search. "
+            "Returns null if facts have not been extracted yet."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "plan_id": {
+                    "type": "string",
+                    "description": (
+                        "The plan ID to look up. Example: 'PLAN_001'."
+                    )
+                }
+            },
+            "required": ["plan_id"]
         }
     }
 ]
@@ -140,8 +197,27 @@ def execute_tool(tool_name: str, tool_input: dict) -> str:
         )
         return format_results_for_claude(results)
 
+    elif tool_name == "retrieve_all":
+        query = tool_input.get("query", "")
+        top_k = tool_input.get("top_k", 8)
+
+        if not query:
+            return "Error: 'query' is required."
+
+        results = retrieve_all(
+            query=query,
+            top_k=top_k
+        )
+        return format_results_for_claude(results)
+
     elif tool_name == "enumerate_plans":
         return _enumerate_plans()
+
+    elif tool_name == "get_plan_facts":
+        plan_id = tool_input.get("plan_id", "")
+        if not plan_id:
+            return "Error: 'plan_id' is required."
+        return _get_plan_facts(plan_id)
 
     else:
         return f"Error: Unknown tool '{tool_name}'."
@@ -199,6 +275,27 @@ def _enumerate_plans() -> str:
     )
 
     return result
+
+
+def _get_plan_facts(plan_id: str) -> str:
+    """
+    Return pre-extracted plan facts as a formatted JSON string.
+    Called when Claude uses the get_plan_facts tool.
+    """
+    import json
+    plan_rules = get_plan_rules(plan_id)
+
+    if plan_rules is None:
+        return (
+            f"No pre-extracted facts found for plan {plan_id}. "
+            "Facts may not have been extracted yet. "
+            "Use retrieve_from_plan to search the document instead."
+        )
+
+    return (
+        f"Pre-extracted plan facts for {plan_id}:\n\n"
+        + json.dumps(plan_rules, indent=2)
+    )
 
 
 # ── Test ──────────────────────────────────────────────────────────────────────

@@ -7,6 +7,8 @@ from app.ingestion.parser_docx import parse_docx
 from app.ingestion.parser_excel import parse_excel
 from app.ingestion.chunker import chunk_all
 from app.storage.vector_store import store_chunks
+from app.ingestion.fact_extractor import extract_plan_facts
+from app.registry.registry import update_plan_rules
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -125,32 +127,50 @@ def ingest_file(file_path: str, context: dict) -> dict:
     print(f"{'='*50}")
 
     # Step 1 — Parse
-    print("\nStep 1/5 — Parsing document...")
+    print("\nStep 1/6 — Parsing document...")
     parser_fn = SUPPORTED_EXTENSIONS[ext]
     parsed_blocks = parser_fn(file_path)
 
     # Step 2 — Chunk
-    print("\nStep 2/5 — Chunking blocks...")
+    print("\nStep 2/6 — Chunking blocks...")
     chunks = chunk_all(parsed_blocks)
     print(f"  Created {len(chunks)} chunks")
 
     # Step 3 — Inject plan metadata
-    print("\nStep 3/5 — Injecting metadata...")
+    print("\nStep 3/6 — Injecting metadata...")
     chunks = inject_plan_metadata(chunks, context)
     print(f"  Metadata injected into all chunks")
 
     # Step 4 — Save
-    print("\nStep 4/5 — Saving chunks...")
+    print("\nStep 4/6 — Saving chunks...")
     output_filename = get_output_filename(context)
     save_path = save_chunks(chunks, output_filename)
     print(f"  Saved to: {save_path}")
 
     # Step 5 — Store in vector database
-    print("\nStep 5/5 — Storing in vector database...")
+    print("\nStep 5/6 — Storing in vector database...")
     vector_stats = store_chunks(chunks)
     print(f"  Stored:  {vector_stats['stored']}")
     print(f"  Skipped: {vector_stats['skipped']}")
     print(f"  Failed:  {vector_stats['failed']}")
+
+    # Step 6 — Extract plan facts (SPD only)
+    if context.get("doc_type") == "SPD" and context.get("plan_id"):
+        print("\nStep 6/6 — Extracting plan facts...")
+        try:
+            plan_rules = extract_plan_facts(
+                chunks=chunks,
+                plan_name=context.get("plan_name", ""),
+                plan_id=context["plan_id"],
+                doc_id=context["doc_id"]
+            )
+            update_plan_rules(context["plan_id"], plan_rules)
+            print("  Plan facts extracted and saved to registry ✓")
+        except Exception as e:
+            print(f"  Warning: fact extraction failed — {e}")
+            print("  Ingestion complete. Run extract_facts.py --force to retry.")
+    else:
+        print("\nStep 6/6 — Skipped (not an SPD)")
 
     # Build stats
     token_counts = [c["metadata"]["token_count"] for c in chunks]

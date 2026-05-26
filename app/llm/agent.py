@@ -15,8 +15,8 @@ from app.llm.tools import TOOL_DEFINITIONS, execute_tool
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 MAX_TOOL_CALLS = 5
-MODEL = "claude-sonnet-4-5"
-MAX_TOKENS = 2048
+MODEL = "claude-sonnet-4-6"
+MAX_TOKENS = 4096
 
 
 # ── Claude Client ─────────────────────────────────────────────────────────────

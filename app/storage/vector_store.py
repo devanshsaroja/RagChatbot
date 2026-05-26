@@ -1,28 +1,15 @@
 import os
 import chromadb
 from chromadb.config import Settings
-from sentence_transformers import SentenceTransformer
+
+from app.embedding_model import get_model
 
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 VECTORDB_PATH = os.path.join("data", "vectordb")
 COLLECTION_NAME = "retirement_rag"
-EMBEDDING_MODEL = "multi-qa-mpnet-base-cos-v1"
 BATCH_SIZE = 32  # Process chunks in batches to avoid memory issues
-
-
-# ── Model ─────────────────────────────────────────────────────────────────────
-
-_model = None
-
-def get_model() -> SentenceTransformer:
-    """Load embedding model once and reuse."""
-    global _model
-    if _model is None:
-        print("  Loading embedding model...")
-        _model = SentenceTransformer(EMBEDDING_MODEL)
-    return _model
 
 
 # ── ChromaDB Client ───────────────────────────────────────────────────────────
@@ -132,23 +119,23 @@ def store_chunks(chunks: list[dict]) -> dict:
     if not chunks:
         return stats
 
-    # Build IDs first — check for duplicates
+    # Build all IDs upfront, then fetch existing ones in a single DB call
+    all_ids = [build_chunk_id(chunk, i) for i, chunk in enumerate(chunks)]
+
+    existing = collection.get(ids=all_ids)
+    existing_set = set(existing["ids"])
+
     ids = []
     texts = []
     metadatas = []
 
-    for global_index, chunk in enumerate(chunks):
-        chunk_id = build_chunk_id(chunk, global_index)
-
-        # Skip if already exists
-        existing = collection.get(ids=[chunk_id])
-        if existing["ids"]:
+    for chunk_id, chunk in zip(all_ids, chunks):
+        if chunk_id in existing_set:
             stats["skipped"] += 1
-            continue
-
-        ids.append(chunk_id)
-        texts.append(chunk["text"])
-        metadatas.append(sanitize_metadata(chunk["metadata"]))
+        else:
+            ids.append(chunk_id)
+            texts.append(chunk["text"])
+            metadatas.append(sanitize_metadata(chunk["metadata"]))
 
     if not ids:
         print(f"  All {stats['skipped']} chunks already in vector store.")

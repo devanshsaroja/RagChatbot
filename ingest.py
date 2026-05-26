@@ -16,10 +16,13 @@ from app.registry.registry import (
     generic_doc_exists,
     add_document,
     add_generic_document,
+    remove_document_from_plan,
+    remove_generic_document,
     get_registry_summary,
     DOC_TYPES
 )
 from app.ingestion.pipeline import ingest_file
+from app.storage.vector_store import delete_doc_chunks
 
 
 # ── Display Helpers ───────────────────────────────────────────────────────────
@@ -253,23 +256,70 @@ def step_get_effective_date() -> str | None:
     return ask_optional("Document effective date (YYYY-MM-DD)")
 
 
-# ── Step 6: Duplicate Check ───────────────────────────────────────────────────
+# ── Document Removal Helper ───────────────────────────────────────────────────
+
+def _remove_existing_document(
+    doc_id: str,
+    tier: str,
+    plan_id: str | None,
+    doc_type: str
+) -> None:
+    """
+    Fully remove a document before replacing it with an updated version.
+    Deletes: ChromaDB vectors, processed JSON file, registry entry.
+    """
+    print_section("Removing Existing Document")
+
+    # Step 1 — Remove vectors from ChromaDB
+    deleted = delete_doc_chunks(doc_id)
+    print_success(f"Removed {deleted} vectors from ChromaDB")
+
+    # Step 2 — Remove processed JSON
+    doc_type_clean = doc_type.replace(" ", "_").replace("/", "_")
+    if tier == "plan_doc":
+        json_filename = f"{plan_id}_{doc_id}_{doc_type_clean}.json"
+    else:
+        json_filename = f"GENERIC_{doc_id}_{doc_type_clean}.json"
+
+    json_path = os.path.join("data", "processed", json_filename)
+    if os.path.exists(json_path):
+        os.remove(json_path)
+        print_success(f"Removed processed file: {json_filename}")
+    else:
+        print_warning(f"Processed file not found (skipping): {json_filename}")
+
+    # Step 3 — Remove from registry
+    if tier == "plan_doc":
+        remove_document_from_plan(plan_id, doc_id)
+    else:
+        remove_generic_document(doc_id)
+    print_success(f"Removed {doc_id} from registry")
+
+
+# ── Step 6: Duplicate / Replacement Check ────────────────────────────────────
 
 def step_check_duplicate(
     file_path: str,
+    filename: str,
     tier: str,
-    plan_id: str | None
-) -> tuple[bool, str]:
+    plan_id: str | None,
+    doc_type: str
+) -> tuple[bool, str, dict | None]:
     """
-    Compute file hash and check for duplicates.
-    Returns (is_duplicate, file_hash)
+    Compute file hash and check for:
+      1. Exact duplicate    — same hash already ingested → (True, hash, None)
+      2. Replacement candidate:
+           Plan docs:    same plan_id + doc_type → (False, hash, existing_doc)
+           Generic docs: same filename base      → (False, hash, existing_doc)
+      3. Genuinely new doc  — no match at all    → (False, hash, None)
     """
-    print_section("Duplicate Check")
+    print_section("Duplicate / Replacement Check")
     print("  Computing file hash...")
 
     file_hash = compute_file_hash(file_path)
     print_success(f"Hash: {file_hash[:16]}...")
 
+    # ── 1. Exact duplicate check (same content) ───────────────────────────────
     if tier == "plan_doc":
         is_dup = document_exists(plan_id, file_hash)
     else:
@@ -277,10 +327,50 @@ def step_check_duplicate(
 
     if is_dup:
         print_warning("This exact file has already been ingested.")
-    else:
-        print_success("No duplicate found.")
+        return True, file_hash, None
 
-    return is_dup, file_hash
+    # ── 2. Replacement candidate check (updated content) ─────────────────────
+    registry = load_registry()
+    existing_doc = None
+
+    if tier == "plan_doc":
+        # Same plan + same doc_type = replacement regardless of filename/format
+        plan_data = registry["plans"].get(plan_id, {})
+        for doc in plan_data.get("documents", []):
+            if doc["doc_type"] == doc_type:
+                existing_doc = doc
+                break
+
+        if existing_doc:
+            print_warning(
+                f"This plan already has a {doc_type} document:\n"
+                f"    {existing_doc['doc_id']} | {existing_doc['filename']} | "
+                f"ingested {existing_doc['ingested_at']} | "
+                f"{existing_doc['chunk_count']} chunks"
+            )
+        else:
+            print_success("No existing document of this type found. New document.")
+
+    else:
+        # Generic docs: same filename base (without extension) = replacement
+        filename_base = os.path.splitext(filename)[0].lower()
+        for doc in registry["generic_documents"]:
+            existing_base = os.path.splitext(doc["filename"])[0].lower()
+            if existing_base == filename_base:
+                existing_doc = doc
+                break
+
+        if existing_doc:
+            print_warning(
+                f"A generic document with the same base name already exists:\n"
+                f"    {existing_doc['doc_id']} | {existing_doc['filename']} | "
+                f"ingested {existing_doc['ingested_at']} | "
+                f"{existing_doc['chunk_count']} chunks"
+            )
+        else:
+            print_success("No existing document with this name found. New document.")
+
+    return False, file_hash, existing_doc
 
 
 # ── Step 7: Confirm and Ingest ────────────────────────────────────────────────
@@ -293,11 +383,13 @@ def step_confirm_and_ingest(
     plan: dict | None,
     doc_type: str,
     effective_date: str | None,
-    file_hash: str
+    file_hash: str,
+    existing_doc: dict | None = None
 ) -> bool:
     """
     Show summary and ask confirmation.
-    Run ingestion if confirmed.
+    If existing_doc is provided, the user is replacing an existing document —
+    the old one is fully removed before the new one is ingested.
     Returns True if ingested successfully.
     """
     print_section("Summary")
@@ -309,6 +401,13 @@ def step_confirm_and_ingest(
     print(f"  Document type:  {doc_type}")
     print(f"  Effective date: {effective_date or 'Not specified'}")
 
+    if existing_doc:
+        print_warning(
+            f"  Replaces:       {existing_doc['doc_id']} | "
+            f"{existing_doc['filename']} | "
+            f"{existing_doc['chunk_count']} chunks"
+        )
+
     if not ask_confirm("Proceed with ingestion?"):
         print("\n  Ingestion cancelled.")
         return False
@@ -318,24 +417,34 @@ def step_confirm_and_ingest(
     registry = load_registry()
 
     if tier == "plan_doc":
-        # Check if document already exists — reuse its doc_id
-        existing_doc_id = None
-        plan_data = registry["plans"].get(plan["plan_id"], {})
-        for doc in plan_data.get("documents", []):
-            if doc["file_hash"] == file_hash:
-                existing_doc_id = doc["doc_id"]
-                break
-
-        if existing_doc_id:
-            doc_id = existing_doc_id
-            print(f"\n  Reusing existing doc_id: {doc_id}")
+        if existing_doc:
+            # Replacement — remove old document, reuse its doc_id
+            _remove_existing_document(
+                doc_id=existing_doc["doc_id"],
+                tier=tier,
+                plan_id=plan["plan_id"],
+                doc_type=existing_doc["doc_type"]
+            )
+            doc_id = existing_doc["doc_id"]
         else:
-            all_doc_ids = [
-                doc["doc_id"]
-                for p in registry["plans"].values()
-                for doc in p["documents"]
-            ]
-            doc_id = _next_id(all_doc_ids, "DOC")
+            # Re-ingest of exact same file — reuse doc_id if found by hash
+            existing_doc_id = None
+            plan_data = registry["plans"].get(plan["plan_id"], {})
+            for doc in plan_data.get("documents", []):
+                if doc["file_hash"] == file_hash:
+                    existing_doc_id = doc["doc_id"]
+                    break
+
+            if existing_doc_id:
+                doc_id = existing_doc_id
+                print(f"\n  Reusing existing doc_id: {doc_id}")
+            else:
+                all_doc_ids = [
+                    doc["doc_id"]
+                    for p in registry["plans"].values()
+                    for doc in p["documents"]
+                ]
+                doc_id = _next_id(all_doc_ids, "DOC")
 
         context = {
             "tier":          "plan_doc",
@@ -348,21 +457,31 @@ def step_confirm_and_ingest(
             "effective_date": effective_date
         }
     else:
-        # Check if generic document already exists — reuse its doc_id
-        existing_doc_id = None
-        for doc in registry["generic_documents"]:
-            if doc["file_hash"] == file_hash:
-                existing_doc_id = doc["doc_id"]
-                break
-
-        if existing_doc_id:
-            doc_id = existing_doc_id
-            print(f"\n  Reusing existing doc_id: {doc_id}")
+        if existing_doc:
+            # Replacement — remove old document, reuse its doc_id
+            _remove_existing_document(
+                doc_id=existing_doc["doc_id"],
+                tier=tier,
+                plan_id=None,
+                doc_type=existing_doc["doc_type"]
+            )
+            doc_id = existing_doc["doc_id"]
         else:
-            existing_ids = [
-                d["doc_id"] for d in registry["generic_documents"]
-            ]
-            doc_id = _next_id(existing_ids, "GDOC")
+            # Re-ingest of exact same file — reuse doc_id if found by hash
+            existing_doc_id = None
+            for doc in registry["generic_documents"]:
+                if doc["file_hash"] == file_hash:
+                    existing_doc_id = doc["doc_id"]
+                    break
+
+            if existing_doc_id:
+                doc_id = existing_doc_id
+                print(f"\n  Reusing existing doc_id: {doc_id}")
+            else:
+                existing_ids = [
+                    d["doc_id"] for d in registry["generic_documents"]
+                ]
+                doc_id = _next_id(existing_ids, "GDOC")
 
         context = {
             "tier":          "generic",
@@ -388,6 +507,7 @@ def step_confirm_and_ingest(
     if tier == "plan_doc":
         add_document(
             plan_id=plan["plan_id"],
+            doc_id=doc_id,
             filename=filename,
             doc_type=doc_type,
             source_format=source_format,
@@ -397,6 +517,7 @@ def step_confirm_and_ingest(
         )
     else:
         add_generic_document(
+            doc_id=doc_id,
             filename=filename,
             doc_type=doc_type,
             source_format=source_format,
@@ -446,13 +567,22 @@ def main():
     # Step 5 — Get effective date
     effective_date = step_get_effective_date()
 
-    # Step 6 — Duplicate check
+    # Step 6 — Duplicate / replacement check
     plan_id = plan["plan_id"] if plan else None
-    is_dup, file_hash = step_check_duplicate(file_path, tier, plan_id)
+    is_dup, file_hash, existing_doc = step_check_duplicate(
+        file_path, filename, tier, plan_id, doc_type
+    )
 
     if is_dup:
         if not ask_confirm(
             "This file was already ingested. Ingest again anyway?"
+        ):
+            print("\n  Skipped. Exiting.")
+            return
+
+    if existing_doc and not is_dup:
+        if not ask_confirm(
+            "Replace the existing document with this new version?"
         ):
             print("\n  Skipped. Exiting.")
             return
@@ -466,7 +596,8 @@ def main():
         plan=plan,
         doc_type=doc_type,
         effective_date=effective_date,
-        file_hash=file_hash
+        file_hash=file_hash,
+        existing_doc=existing_doc if not is_dup else None
     )
 
     print("\n" + "═" * 52)

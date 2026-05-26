@@ -7,6 +7,7 @@ from datetime import date
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 REGISTRY_PATH = os.path.join("data", "registry.json")
+FACTS_DIR     = os.path.join("data", "facts")
 
 DOC_TYPES = [
     "SPD",
@@ -35,11 +36,15 @@ def load_registry() -> dict:
 
 
 def save_registry(registry: dict):
-    """Save registry to disk."""
+    """Save registry to disk using atomic write (tmp → rename).
+    Prevents file corruption if the process is interrupted mid-write.
+    """
     registry["meta"]["last_updated"] = str(date.today())
     os.makedirs(os.path.dirname(REGISTRY_PATH), exist_ok=True)
-    with open(REGISTRY_PATH, 'w', encoding='utf-8') as f:
+    tmp_path = REGISTRY_PATH + ".tmp"
+    with open(tmp_path, 'w', encoding='utf-8') as f:
         json.dump(registry, f, indent=2, ensure_ascii=False)
+    os.replace(tmp_path, REGISTRY_PATH)  # atomic on both Windows and Linux
 
 
 def _empty_registry() -> dict:
@@ -187,6 +192,48 @@ def list_plans() -> list[dict]:
     return result
 
 
+# ── Plan Rules Operations ─────────────────────────────────────────────────────
+# Plan rules are stored as individual per-plan JSON files in data/facts/
+# rather than embedded in registry.json. This keeps registry.json small
+# and avoids file-write issues with large JSON payloads.
+
+def update_plan_rules(plan_id: str, plan_rules: dict) -> bool:
+    """
+    Store extracted plan facts for a given plan.
+    Writes to data/facts/{plan_id}_rules.json using atomic write.
+    Called by pipeline.py (during ingestion) and extract_facts.py (one-time backfill).
+    Returns True if written, False if plan not found in registry.
+    """
+    registry = load_registry()
+    if plan_id not in registry["plans"]:
+        return False
+
+    os.makedirs(FACTS_DIR, exist_ok=True)
+    path = os.path.join(FACTS_DIR, f"{plan_id}_rules.json")
+    tmp  = path + ".tmp"
+
+    with open(tmp, 'w', encoding='utf-8') as f:
+        json.dump(plan_rules, f, indent=2, ensure_ascii=False)
+        f.flush()
+        os.fsync(f.fileno())
+
+    os.replace(tmp, path)
+    return True
+
+
+def get_plan_rules(plan_id: str) -> dict | None:
+    """
+    Retrieve stored plan facts for a given plan.
+    Reads from data/facts/{plan_id}_rules.json.
+    Returns plan_rules dict, or None if file not found (not yet extracted).
+    """
+    path = os.path.join(FACTS_DIR, f"{plan_id}_rules.json")
+    if not os.path.exists(path):
+        return None
+    with open(path, 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+
 # ── Document Operations ───────────────────────────────────────────────────────
 
 def compute_file_hash(file_path: str) -> str:
@@ -220,6 +267,7 @@ def document_exists(plan_id: str, file_hash: str) -> bool:
 
 def add_document(
     plan_id: str,
+    doc_id: str,
     filename: str,
     doc_type: str,
     source_format: str,
@@ -230,6 +278,8 @@ def add_document(
     """
     Add or update a document in a plan's document list.
     If doc with same hash exists — updates chunk_count and ingested_at.
+    doc_id must be provided by the caller (generated in ingest.py) to ensure
+    it matches the ID already embedded in chunk metadata and vector store.
     Returns the created/updated document dict.
     """
     registry = load_registry()
@@ -245,14 +295,6 @@ def add_document(
             existing_doc["ingested_at"] = str(date.today())
             save_registry(registry)
             return existing_doc
-
-    # New document — generate new doc_id
-    all_doc_ids = [
-        doc["doc_id"]
-        for p in registry["plans"].values()
-        for doc in p["documents"]
-    ]
-    doc_id = _next_id(all_doc_ids, "DOC")
 
     document = {
         "doc_id": doc_id,
@@ -284,6 +326,7 @@ def generic_doc_exists(file_hash: str) -> bool:
 
 
 def add_generic_document(
+    doc_id: str,
     filename: str,
     doc_type: str,
     source_format: str,
@@ -294,6 +337,8 @@ def add_generic_document(
     """
     Add or update a generic document in the registry.
     If doc with same hash exists — updates chunk_count and ingested_at.
+    doc_id must be provided by the caller (generated in ingest.py) to ensure
+    it matches the ID already embedded in chunk metadata and vector store.
     Returns the created/updated document dict.
     """
     registry = load_registry()
@@ -305,10 +350,6 @@ def add_generic_document(
             existing_doc["ingested_at"] = str(date.today())
             save_registry(registry)
             return existing_doc
-
-    # New document — generate new doc_id
-    existing_ids = [d["doc_id"] for d in registry["generic_documents"]]
-    doc_id = _next_id(existing_ids, "GDOC")
 
     document = {
         "doc_id": doc_id,
@@ -474,6 +515,7 @@ if __name__ == "__main__":
     file_hash = compute_file_hash("data/raw/Microsoft_401k_SPD.pdf")
     doc = add_document(
         plan_id=plan["plan_id"],
+        doc_id="DOC_001",
         filename="Microsoft_401k_SPD.pdf",
         doc_type="SPD",
         source_format="pdf",
@@ -489,6 +531,7 @@ if __name__ == "__main__":
 
     # Add generic document
     gdoc = add_generic_document(
+        doc_id="GDOC_001",
         filename="IRS_Publication_560.pdf",
         doc_type="IRS Publication",
         source_format="pdf",

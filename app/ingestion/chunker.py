@@ -1,9 +1,6 @@
-import logging
-# Suppress transformers tokenizer length warning — we handle oversized chunks ourselves
-logging.getLogger("transformers.tokenization_utils_base").setLevel(logging.ERROR)
-
 import re
-from sentence_transformers import SentenceTransformer
+
+from app.embedding_model import get_model
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -12,10 +9,7 @@ TARGET_TOKENS = 360   # Safe target (leaves room for context header + subwords)
 OVERLAP_TOKENS = 40   # ~10% overlap for plain text
 MIN_TOKENS    = 15    # Skip chunks smaller than this
 
-# ── Model + Tokenizer ─────────────────────────────────────────────────────────
-
-# Load once at module level — expensive to reload repeatedly
-_model = None
+# ── Tokenizer ─────────────────────────────────────────────────────────────────
 
 def force_split_oversized_chunk(
     chunk_text: str,
@@ -75,7 +69,6 @@ def clean_markdown_artifacts(text: str) -> str:
     - Remove dot leaders (. . . . .) from IRS forms
     - Remove excessive repeated punctuation
     """
-    import re
     # Convert <br> to space
     text = re.sub(r'<br\s*/?>', ' ', text, flags=re.IGNORECASE)
     # Remove dot leaders — sequences of ". " repeated 3+ times
@@ -88,15 +81,6 @@ def clean_markdown_artifacts(text: str) -> str:
     # Normalize multiple spaces
     text = re.sub(r' {2,}', ' ', text)
     return text
-
-
-def get_model() -> SentenceTransformer:
-    """Load model once and reuse."""
-    global _model
-    if _model is None:
-        print("  Loading embedding model...")
-        _model = SentenceTransformer('multi-qa-mpnet-base-cos-v1')
-    return _model
 
 
 def count_tokens(text: str) -> int:

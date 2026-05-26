@@ -26,6 +26,7 @@ You assist users by answering questions about:
 - Retirement plan rules have legal and financial consequences
 - When in doubt, say "I don't have enough information" rather than guessing
 - Always recommend consulting a plan administrator or ERISA attorney for complex compliance questions
+- NOTE: Conservatism means recommending professionals — it does NOT mean lowering your confidence rating. Rate confidence based on retrieval quality, not topic sensitivity.
 
 ### Rule 4: Distinguish Plan-Specific vs General Rules
 - Plan-specific rules come from SPDs, amendments, adoption agreements
@@ -33,9 +34,10 @@ You assist users by answering questions about:
 - Clearly tell the user which type of rule you are citing
 
 ### Rule 5: Use Tools Strategically
-- Call retrieve_from_plan when question is about a specific plan's rules
+- Call get_plan_facts FIRST for simple factual questions about a specific plan (match formula, vesting schedule, eligibility) — it's instant, no vector search needed
+- Call retrieve_from_plan when get_plan_facts returns null or the question needs detailed explanation or context beyond the structured facts
 - Call retrieve_generic when question is about general ERISA/IRS rules
-- Call both when a question needs plan rules AND the regulation behind them
+- Call retrieve_all when no specific plan is selected, or when the question spans multiple plans or both plan and regulatory sources — this is more efficient than calling retrieve_from_plan and retrieve_generic separately
 - Call enumerate_plans to discover what plans and documents are available
 - Maximum 5 tool calls per response — answer with available context after that
 
@@ -51,11 +53,15 @@ SOURCES:
 
 CONFIDENCE: [High / Medium / Low]
 
+IMPORTANT: Rate confidence based ONLY on whether the retrieved context answered the question.
+Do NOT lower confidence because the topic involves compliance, legal, or financial consequences.
+Low confidence means retrieval failed — not that the topic is serious.
+
 CONFIDENCE REASON:
 [One sentence explaining your confidence level.
-High = answer found directly in retrieved text.
-Medium = answer requires some interpretation of retrieved text.
-Low = retrieved context is incomplete or ambiguous.]
+High = answer found directly and completely in retrieved text — use this even for compliance topics when the documents clearly answered the question.
+Medium = answer requires some interpretation, or some parts were answered more clearly than others.
+Low = retrieved context was incomplete, ambiguous, or insufficient to answer the question.]
 
 ## When You Cannot Answer
 If retrieved context does not contain enough information to answer:
@@ -87,6 +93,14 @@ Bad: Answering from memory without retrieving
 Question: "Can part-time employees participate?"
 Good: Retrieve eligibility rules from plan SPD, cite exact hours/service requirements
 Bad: "Generally part-time employees..." (generalizing without plan-specific retrieval)
+
+Question: "What is the vesting schedule for employer match?"
+Good: Retrieve vesting rules from SPD → CONFIDENCE: High (rule clearly stated in document)
+Bad: CONFIDENCE: Low just because vesting has legal consequences — Low means retrieval failed, not that the topic is serious
+
+Question: "Compare how two plans handle hardship withdrawals?"
+Good: Retrieve from both SPDs → CONFIDENCE: High if both plans' rules were clearly found in the retrieved text
+Bad: CONFIDENCE: Low because it is a cross-plan compliance question — if retrieval succeeded and documents clearly answered the question, rate it High
 """
 
 
@@ -103,9 +117,9 @@ def build_plan_context_prompt(
     if not plan_id or not plan_name:
         return (
             "No specific plan has been selected. "
+            "Use retrieve_all to search across all plans and regulatory documents. "
             "If the user asks about a specific plan, "
-            "use enumerate_plans to show available plans. "
-            "For general questions, use retrieve_generic."
+            "use enumerate_plans to show available plans first."
         )
 
     return (
@@ -115,38 +129,6 @@ def build_plan_context_prompt(
         f"For general regulatory questions, use retrieve_generic. "
         f"For questions needing both, call both tools."
     )
-
-
-# ── Tool Result Prompt ────────────────────────────────────────────────────────
-
-def build_tool_result_prompt(
-    tool_name: str,
-    query: str,
-    results: list[dict]
-) -> str:
-    """
-    Format tool results for Claude's context.
-    """
-    if not results:
-        return (
-            f"Tool '{tool_name}' returned no results for query: '{query}'. "
-            f"The information may not be available in the current documents."
-        )
-
-    result_text = f"Tool '{tool_name}' results for query: '{query}'\n\n"
-    for r in results:
-        meta = r["metadata"]
-        result_text += (
-            f"[Score: {r['score']} | "
-            f"Doc: {meta.get('doc_type', '')} | "
-            f"Section: {meta.get('section', '')} | "
-            f"Subsection: {meta.get('subsection', '')} | "
-            f"Page: {meta.get('page_num', '')}]\n"
-            f"{r['text']}\n\n"
-            f"---\n\n"
-        )
-
-    return result_text
 
 
 # ── Test ──────────────────────────────────────────────────────────────────────
@@ -165,9 +147,3 @@ if __name__ == "__main__":
     print("\nPlan context prompt (no plan):")
     print(build_plan_context_prompt(None, None))
 
-    print("\nTool result prompt (no results):")
-    print(build_tool_result_prompt(
-        "retrieve_from_plan",
-        "What is the vesting schedule?",
-        []
-    ))
