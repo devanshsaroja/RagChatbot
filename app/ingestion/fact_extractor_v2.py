@@ -15,7 +15,7 @@ from app.retrieval.retriever import retrieve_from_plan
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 MODEL           = "claude-sonnet-4-6"
-MAX_TOKENS      = 1024   # one field group at a time — smaller responses
+MAX_TOKENS      = 2048   # one field group at a time — increased for complex plans
 TOP_K_PER_QUERY = 8      # chunks retrieved per query
 
 
@@ -41,7 +41,8 @@ FIELD_QUERIES = {
         },
         "field_constraints": {
             "plan_type":     "Return the short canonical type only — e.g. '401(k)', '403(b)', 'profit sharing'. Never a full sentence or description.",
-            "record_keeper": "Return the brand/company name only — e.g. 'Fidelity', 'Empower', 'Vanguard'. Not the full legal entity name."
+            "record_keeper": "Return the brand/company name only — e.g. 'Fidelity', 'Empower', 'Vanguard'. Not the full legal entity name.",
+            "plan_year_end": "Return the month name and day — e.g. 'December 31'. Never use numeric formats like '12/31' or '12-31'."
         }
     },
 
@@ -58,6 +59,13 @@ FIELD_QUERIES = {
                 "roth_contributions":      None,
                 "after_tax_contributions": None
             }
+        },
+        "field_constraints": {
+            "auto_enrollment":         "Return True if auto-enrollment is available, False if explicitly not available, null if not mentioned. Never return a description.",
+            "loan_provision":          "Return True if loans are available, False if explicitly not available, null if not mentioned. Never return a description.",
+            "hardship_withdrawal":     "Return True if hardship withdrawals are available, False if explicitly not available, null if not mentioned. Never return a description.",
+            "roth_contributions":      "Return True if Roth contributions are available, False if explicitly not available, null if not mentioned. Never return a description.",
+            "after_tax_contributions": "Return True if after-tax contributions are available, False if explicitly not available, null if not mentioned. Never return a description."
         }
     },
 
@@ -87,7 +95,8 @@ FIELD_QUERIES = {
 
     "nonelective_contribution": {
         "queries": [
-            "nonelective contribution safe harbor profit sharing percentage of pay"
+            "nonelective contribution safe harbor profit sharing percentage of pay",
+            "discretionary company contribution employer nonelective QNEC"
         ],
         "schema": {
             "nonelective_contribution": {

@@ -1,15 +1,17 @@
 """
 compare_extractors.py
 ─────────────────────
-Compares V1 (full document scan) vs V2 (targeted vector search) fact extractors
+Compares V1 (full document scan) vs V2 (targeted vector search, static queries)
+vs V3 (targeted vector search, dynamic LLM-generated queries) fact extractors
 on PLAN_001 (Capital One Associate Savings Plan).
 
 What this script does:
-  Step 1 — Load V1 baseline results from data/facts/PLAN_001_rules.json
-  Step 2 — Measure V1 token cost exactly (3 API calls, same prompt as V1)
-  Step 3 — Run V2 extractor live, capture results + token stats
-  Step 4 — Compare field by field (match / missed / disagree / v2_extra)
-  Step 5 — Print side-by-side report, save to data/comparisons/
+  Step 1  — Load V1 baseline results from data/facts/PLAN_001_rules.json
+  Step 2  — Measure V1 token cost exactly (3 API calls, same prompt as V1)
+  Step 3  — Run V2 extractor live, capture results + token stats
+  Step 3b — Run V3 extractor live, capture results + token stats
+  Step 4  — Compare both V2 and V3 field-by-field against V1 baseline
+  Step 5  — Print 3-column report, save to data/comparisons/
 
 NOTE: fact_extractor.py (V1) is NOT modified. The V1 prompt and schema are
       copied verbatim here purely for token measurement. The stored JSON is
@@ -35,15 +37,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app.registry.registry   import load_registry, get_plan_rules
 from app.ingestion.fact_extractor_v2 import extract_plan_facts_v2
+from app.ingestion.fact_extractor_v3 import extract_plan_facts_v3
 
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
-PLAN_ID        = "PLAN_001"
-SPD_DOC_ID     = "DOC_002"
-PROCESSED_PATH = os.path.join("data", "processed", "PLAN_001_DOC_002_SPD.json")
-FACTS_PATH     = os.path.join("data", "facts",     "PLAN_001_rules.json")
-OUTPUT_DIR     = os.path.join("data", "comparisons")
+OUTPUT_DIR = os.path.join("data", "comparisons")
 
 V1_MODEL       = "claude-sonnet-4-6"
 V1_MAX_TOKENS  = 4096
@@ -171,6 +170,47 @@ Document text:
 {document_text}"""
 
 
+# ── Plan Resolution ───────────────────────────────────────────────────────────
+
+def resolve_plan(plan_id: str) -> dict:
+    """
+    Look up a plan in the registry and derive all file paths needed for comparison.
+
+    Returns a dict with:
+      plan_id        — e.g. "PLAN_001"
+      plan_name      — e.g. "Capital One Associate Savings Plan"
+      spd_doc_id     — e.g. "DOC_002"
+      processed_path — path to the processed chunks JSON for the SPD
+      facts_path     — path to the stored V1 facts JSON
+    """
+    registry = load_registry()
+    plan     = registry["plans"].get(plan_id)
+
+    if not plan:
+        available = list(registry["plans"].keys())
+        raise ValueError(
+            f"Plan '{plan_id}' not found in registry. "
+            f"Available plans: {available}"
+        )
+
+    spd_doc = next(
+        (d for d in plan.get("documents", []) if d["doc_type"] == "SPD"),
+        None
+    )
+    if not spd_doc:
+        raise ValueError(f"No SPD document found for plan '{plan_id}'")
+
+    spd_doc_id = spd_doc["doc_id"]
+
+    return {
+        "plan_id":        plan_id,
+        "plan_name":      plan["plan_name"],
+        "spd_doc_id":     spd_doc_id,
+        "processed_path": os.path.join("data", "processed", f"{plan_id}_{spd_doc_id}_SPD.json"),
+        "facts_path":     os.path.join("data", "facts",     f"{plan_id}_rules.json"),
+    }
+
+
 # ── V1 Helpers (copied logic — no import from fact_extractor.py) ──────────────
 
 def _v1_reconstruct_text(chunks: list[dict]) -> str:
@@ -197,32 +237,26 @@ def _v1_reconstruct_text(chunks: list[dict]) -> str:
 
 # ── Step 1 — Load V1 baseline ─────────────────────────────────────────────────
 
-def load_v1_baseline() -> tuple[dict, str]:
+def load_v1_baseline(plan_id: str, facts_path: str) -> dict:
     """
-    Load stored V1 extraction results and plan name.
-    Returns (v1_results, plan_name).
+    Load stored V1 extraction results from the facts JSON.
+    Returns the parsed plan_rules dict.
     """
-    if not os.path.exists(FACTS_PATH):
+    if not os.path.exists(facts_path):
         raise FileNotFoundError(
-            f"V1 facts not found at {FACTS_PATH}. "
+            f"V1 facts not found at {facts_path}. "
             "Run extract_facts.py first."
         )
 
-    with open(FACTS_PATH, "r", encoding="utf-8") as f:
-        v1_results = json.load(f)
-
-    registry  = load_registry()
-    plan      = registry["plans"].get(PLAN_ID, {})
-    plan_name = plan.get("plan_name", PLAN_ID)
-
-    return v1_results, plan_name
+    with open(facts_path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 # ── Step 2 — Measure V1 tokens (exact) ───────────────────────────────────────
 
-def measure_v1_tokens(plan_name: str) -> dict:
+def measure_v1_tokens(plan_name: str, plan_id: str, processed_path: str) -> dict:
     """
-    Re-run V1 API calls on PLAN_001 purely for token measurement.
+    Re-run V1 API calls on the given plan purely for token measurement.
     Uses the exact same prompt and batching as fact_extractor.py.
     Output is discarded — V1 accuracy baseline comes from stored JSON.
 
@@ -232,10 +266,10 @@ def measure_v1_tokens(plan_name: str) -> dict:
     print("STEP 2 — Measuring V1 token cost (exact API calls)")
     print("═" * 60)
 
-    if not os.path.exists(PROCESSED_PATH):
-        raise FileNotFoundError(f"Processed chunks not found: {PROCESSED_PATH}")
+    if not os.path.exists(processed_path):
+        raise FileNotFoundError(f"Processed chunks not found: {processed_path}")
 
-    with open(PROCESSED_PATH, "r", encoding="utf-8") as f:
+    with open(processed_path, "r", encoding="utf-8") as f:
         chunks = json.load(f)
 
     batches       = [
@@ -244,7 +278,7 @@ def measure_v1_tokens(plan_name: str) -> dict:
     ]
     total_batches = len(batches)
 
-    print(f"  Plan:    {plan_name} ({PLAN_ID})")
+    print(f"  Plan:    {plan_name} ({plan_id})")
     print(f"  Chunks:  {len(chunks)}")
     print(f"  Batches: {total_batches} "
           f"({[len(b) for b in batches]} chunks each)")
@@ -313,16 +347,31 @@ def measure_v1_tokens(plan_name: str) -> dict:
 
 # ── Step 3 — Run V2 live ──────────────────────────────────────────────────────
 
-def run_v2(plan_name: str) -> tuple[dict, dict]:
+def run_v2(plan_name: str, plan_id: str, spd_doc_id: str) -> tuple[dict, dict]:
     """Run V2 extractor and return (plan_rules, token_stats)."""
     print("\n" + "═" * 60)
     print("STEP 3 — Running V2 extractor (targeted vector search)")
     print("═" * 60 + "\n")
 
     return extract_plan_facts_v2(
-        plan_id=PLAN_ID,
+        plan_id=plan_id,
         plan_name=plan_name,
-        doc_id=SPD_DOC_ID
+        doc_id=spd_doc_id
+    )
+
+
+# ── Step 3b — Run V3 live ─────────────────────────────────────────────────────
+
+def run_v3(plan_name: str, plan_id: str, spd_doc_id: str) -> tuple[dict, dict]:
+    """Run V3 extractor and return (plan_rules, token_stats)."""
+    print("\n" + "═" * 60)
+    print("STEP 3b — Running V3 extractor (dynamic query generation)")
+    print("═" * 60 + "\n")
+
+    return extract_plan_facts_v3(
+        plan_id=plan_id,
+        plan_name=plan_name,
+        doc_id=spd_doc_id
     )
 
 
@@ -472,38 +521,49 @@ def _pct_reduction(v1_val: int, v2_val: int) -> str:
     return f"{arrow} {abs(reduction)}%"
 
 
-def print_report(
-    plan_name:   str,
-    v1_tokens:   dict,
-    v2_tokens:   dict,
-    comparison:  list[dict]
-):
-    W = 66  # report width
+def _accuracy_summary(comparison: list[dict]) -> dict:
+    """Compute accuracy stats for a comparison result list."""
+    structured   = [r for r in comparison if r["field_type"] == "structured"]
+    comparable   = [r for r in structured  if r["status"] != "both_null"]
+    text_flds    = [r for r in comparison  if r["field_type"] == "text"]
+    return {
+        "match":      len([r for r in structured if r["status"] == "match"]),
+        "missed":     len([r for r in structured if r["status"] == "missed"]),
+        "disagree":   len([r for r in structured if r["status"] == "disagree"]),
+        "v2_extra":   len([r for r in structured if r["status"] == "v2_extra"]),
+        "both_null":  len([r for r in structured if r["status"] == "both_null"]),
+        "comparable": len(comparable),
+        "text_total": len(text_flds),
+    }
 
-    def _fmt(val):
+
+def print_report(
+    plan_name:     str,
+    plan_id:       str,
+    v1_tokens:     dict,
+    v2_tokens:     dict,
+    v3_tokens:     dict,
+    v2_comparison: list[dict],
+    v3_comparison: list[dict]
+):
+    W = 76  # report width — wider for 3 columns
+
+    def _fmt(val, width=30):
         """Truncate long values for display."""
         if val is None:
             return "null"
         s = json.dumps(val) if isinstance(val, (dict, list)) else str(val)
-        return s[:42] + "…" if len(s) > 42 else s
+        return s[:width] + "…" if len(s) > width else s
 
-    def _print_row(icon, field, v1_val, v2_val, status):
-        f = f"{field:<47}"
-        if status == "match":
-            print(f"  {icon}  {f} {_fmt(v1_val)}")
-        elif status == "missed":
-            print(f"  {icon}  {f} V1={_fmt(v1_val)}   V2=null")
-        elif status == "disagree":
-            print(f"  {icon}  {f} V1={_fmt(v1_val)}")
-            print(f"     {'':47} V2={_fmt(v2_val)}")
-        elif status == "v2_extra":
-            print(f"  {icon}  {f} V1=null   V2={_fmt(v2_val)}")
-        elif status == "text":
-            print(f"  ~  {f} V1={_fmt(v1_val)}")
-            print(f"     {'':47} V2={_fmt(v2_val)}")
+    def _status_icon(status):
+        return {"match": "✓", "missed": "✗", "disagree": "⚠",
+                "v2_extra": "+", "both_null": "·"}.get(status, "?")
+
+    # Index V3 comparison by field for easy lookup
+    v3_by_field = {r["field"]: r for r in v3_comparison}
 
     print("\n" + "═" * W)
-    print(f"  EXTRACTOR COMPARISON — {PLAN_ID}")
+    print(f"  EXTRACTOR COMPARISON — {plan_id}")
     print(f"  {plan_name}")
     print("═" * W)
 
@@ -512,99 +572,135 @@ def print_report(
     v1_out = v1_tokens["total_output_tokens"]
     v2_in  = v2_tokens["total_input_tokens"]
     v2_out = v2_tokens["total_output_tokens"]
+    v3_in  = v3_tokens["total_input_tokens"]
+    v3_out = v3_tokens["total_output_tokens"]
 
-    print(f"\n{'COST':<32} {'V1 Full Scan':>14}  {'V2 Targeted':>12}")
+    print(f"\n{'COST':<28} {'V1 Full Scan':>13} {'V2 Static':>13} {'V3 Dynamic':>13}")
     print("─" * W)
-    print(f"{'Input tokens':<32} {v1_in:>14,}  {v2_in:>12,}  {_pct_reduction(v1_in, v2_in)}")
-    print(f"{'Output tokens':<32} {v1_out:>14,}  {v2_out:>12,}")
-    print(f"{'Total tokens':<32} {v1_in+v1_out:>14,}  {v2_in+v2_out:>12,}  {_pct_reduction(v1_in+v1_out, v2_in+v2_out)}")
-    print(f"{'LLM calls':<32} {v1_tokens['total_llm_calls']:>14}  {v2_tokens['total_llm_calls']:>12}")
-    print(f"{'Elapsed (seconds)':<32} {v1_tokens['elapsed_seconds']:>14.1f}  {v2_tokens['elapsed_seconds']:>12.1f}")
+    print(f"{'Input tokens':<28} {v1_in:>13,} {v2_in:>13,} {v3_in:>13,}")
+    print(f"{'  vs V1':<28} {'—':>13} {_pct_reduction(v1_in,v2_in):>13} {_pct_reduction(v1_in,v3_in):>13}")
+    print(f"{'Output tokens':<28} {v1_out:>13,} {v2_out:>13,} {v3_out:>13,}")
+    print(f"{'Total tokens':<28} {v1_in+v1_out:>13,} {v2_in+v2_out:>13,} {v3_in+v3_out:>13,}")
+    print(f"{'LLM calls':<28} {v1_tokens['total_llm_calls']:>13} {v2_tokens['total_llm_calls']:>13} {v3_tokens['total_llm_calls']:>13}")
+    print(f"{'Elapsed (seconds)':<28} {v1_tokens['elapsed_seconds']:>13.1f} {v2_tokens['elapsed_seconds']:>13.1f} {v3_tokens['elapsed_seconds']:>13.1f}")
 
-    # ── Split into structured vs text fields ──
-    structured = [r for r in comparison if r["field_type"] == "structured"]
-    text_flds  = [r for r in comparison if r["field_type"] == "text"]
+    # ── Generated queries (V3 only) ──
+    gen_queries = v3_tokens.get("query_generation", {}).get("generated_queries", {})
+    if gen_queries:
+        print(f"\n\nV3 GENERATED QUERIES")
+        print("─" * W)
+        for group, queries in gen_queries.items():
+            print(f"  {group}:")
+            for q in queries:
+                print(f"    · {q}")
 
-    s_match    = [r for r in structured if r["status"] == "match"]
-    s_missed   = [r for r in structured if r["status"] == "missed"]
-    s_disagree = [r for r in structured if r["status"] == "disagree"]
-    s_v2extra  = [r for r in structured if r["status"] == "v2_extra"]
-    s_bothnull = [r for r in structured if r["status"] == "both_null"]
+    # ── Structured fields — 3-column comparison ──
+    structured_v2 = [r for r in v2_comparison if r["field_type"] == "structured"
+                     and r["status"] != "both_null"]
 
-    # Comparable = structured fields where at least one extractor had a value
-    s_comparable = [r for r in structured if r["status"] != "both_null"]
-
-    STATUS_ICONS = {"match": "✓", "missed": "✗", "disagree": "⚠", "v2_extra": "+"}
-
-    # ── Structured fields section ──
     print(f"\n\nSTRUCTURED FIELDS  (exact match — counted in accuracy)")
     print("─" * W)
-    for r in structured:
-        if r["status"] == "both_null":
-            continue
-        icon = STATUS_ICONS.get(r["status"], "?")
-        _print_row(icon, r["field"], r["v1"], r["v2"], r["status"])
+    print(f"  {'Field':<44} {'V2':^8} {'V3':^8}  V1 value")
+    print(f"  {'─'*44} {'─'*8} {'─'*8}  {'─'*12}")
 
-    # ── Text fields section ──
-    if text_flds:
-        print(f"\n\nTEXT FIELDS  (wording varies — informational only, not counted)")
+    for r2 in structured_v2:
+        field  = r2["field"]
+        r3     = v3_by_field.get(field, {"status": "missing", "v2": None})
+        v2_icon = _status_icon(r2["status"])
+        v3_icon = _status_icon(r3.get("status", "missing"))
+
+        # Show disagreement detail on next line
+        v1_display = _fmt(r2["v1"], 20)
+        print(f"  {field:<44} {v2_icon:^8} {v3_icon:^8}  {v1_display}")
+
+        # Show what V2/V3 returned if they disagree with V1
+        if r2["status"] in ("disagree", "missed"):
+            print(f"    {'':44} V2={_fmt(r2['v2'], 20)}")
+        if r3.get("status") in ("disagree", "missed"):
+            print(f"    {'':44} V3={_fmt(r3.get('v2'), 20)}")
+
+    # ── Text fields ──
+    text_v2 = [r for r in v2_comparison if r["field_type"] == "text"]
+    if text_v2:
+        print(f"\n\nTEXT FIELDS  (wording varies — not counted in accuracy)")
         print("─" * W)
-        for r in text_flds:
-            if r["v1"] is None and r["v2"] is None:
+        print(f"  {'Field':<44} {'V2':^8} {'V3':^8}")
+        print(f"  {'─'*44} {'─'*8} {'─'*8}")
+        for r2 in text_v2:
+            if r2["v1"] is None and r2["v2"] is None:
                 continue
-            if r["status"] == "match":
-                print(f"  ✓  {r['field']:<47} {_fmt(r['v1'])}")
-            else:
-                _print_row("~", r["field"], r["v1"], r["v2"], "text")
+            field  = r2["field"]
+            r3     = v3_by_field.get(field, {"status": "missing"})
+            v2_icon = "✓" if r2["status"] == "match" else "~"
+            v3_icon = "✓" if r3.get("status") == "match" else "~"
+            print(f"  {field:<44} {v2_icon:^8} {v3_icon:^8}")
 
     # ── Summary ──
-    total_s = len(s_comparable)
+    v2_acc = _accuracy_summary(v2_comparison)
+    v3_acc = _accuracy_summary(v3_comparison)
+    total  = v2_acc["comparable"]
+
+    def _acc_pct(acc):
+        if acc["comparable"] == 0:
+            return "n/a"
+        return f"{round(acc['match'] / acc['comparable'] * 100, 1)}%"
+
     print("\n" + "─" * W)
-    print(f"  STRUCTURED ACCURACY")
-    print(f"  ✓  Match:        {len(s_match):3d} / {total_s}")
-    print(f"  ✗  Missed:       {len(s_missed):3d}   (V2 returned null, V1 had value)")
-    print(f"  ⚠  Disagree:     {len(s_disagree):3d}   (both non-null but different)")
-    print(f"  +  V2 extra:     {len(s_v2extra):3d}   (V2 found field V1 missed)")
-    print(f"  ·  Both null:    {len(s_bothnull):3d}   (neither extractor found value)")
-    if total_s > 0:
-        accuracy = round(len(s_match) / total_s * 100, 1)
-        print(f"\n  Accuracy:  {accuracy}%  ({len(s_match)}/{total_s} structured fields matched)")
-    print(f"\n  TEXT FIELDS (not counted):  {len(text_flds)} fields reviewed separately")
+    print(f"  {'STRUCTURED ACCURACY':<28} {'V2 Static':>13} {'V3 Dynamic':>13}")
+    print(f"  {'─'*28} {'─'*13} {'─'*13}")
+    print(f"  {'Accuracy':<28} {_acc_pct(v2_acc):>13} {_acc_pct(v3_acc):>13}")
+    print(f"  {'Match':<28} {v2_acc['match']:>13} {v3_acc['match']:>13}  / {total}")
+    print(f"  {'Missed':<28} {v2_acc['missed']:>13} {v3_acc['missed']:>13}")
+    print(f"  {'Disagree':<28} {v2_acc['disagree']:>13} {v3_acc['disagree']:>13}")
+    print(f"\n  Text fields (not counted): {v2_acc['text_total']}")
     print("═" * W)
 
 
 def save_comparison(
-    plan_name:  str,
-    v1_tokens:  dict,
-    v2_tokens:  dict,
-    v2_results: dict,
-    comparison: list[dict]
+    plan_name:     str,
+    plan_id:       str,
+    v1_tokens:     dict,
+    v2_tokens:     dict,
+    v3_tokens:     dict,
+    v2_results:    dict,
+    v3_results:    dict,
+    v2_comparison: list[dict],
+    v3_comparison: list[dict]
 ):
-    """Save full comparison data to data/comparisons/."""
+    """Save full comparison data (V1/V2/V3) to data/comparisons/."""
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    output_path = os.path.join(OUTPUT_DIR, f"{PLAN_ID}_comparison.json")
+    output_path = os.path.join(OUTPUT_DIR, f"{plan_id}_comparison.json")
 
-    output = {
-        "plan_id":       PLAN_ID,
-        "plan_name":     plan_name,
-        "compared_at":   str(date.today()),
-        "v1_token_stats": v1_tokens,
-        "v2_token_stats": v2_tokens,
-        "v2_results":    v2_results,
-        "field_comparison": comparison,
-        "summary": {
+    def _summary_block(comparison):
+        return {
             "structured": {
-                "match":     len([r for r in comparison if r["status"] == "match"    and r["field_type"] == "structured"]),
-                "missed":    len([r for r in comparison if r["status"] == "missed"   and r["field_type"] == "structured"]),
-                "disagree":  len([r for r in comparison if r["status"] == "disagree" and r["field_type"] == "structured"]),
-                "v2_extra":  len([r for r in comparison if r["status"] == "v2_extra" and r["field_type"] == "structured"]),
-                "both_null": len([r for r in comparison if r["status"] == "both_null"and r["field_type"] == "structured"]),
+                "match":     len([r for r in comparison if r["status"] == "match"     and r["field_type"] == "structured"]),
+                "missed":    len([r for r in comparison if r["status"] == "missed"    and r["field_type"] == "structured"]),
+                "disagree":  len([r for r in comparison if r["status"] == "disagree"  and r["field_type"] == "structured"]),
+                "v2_extra":  len([r for r in comparison if r["status"] == "v2_extra"  and r["field_type"] == "structured"]),
+                "both_null": len([r for r in comparison if r["status"] == "both_null" and r["field_type"] == "structured"]),
             },
             "text": {
                 "total":    len([r for r in comparison if r["field_type"] == "text"]),
                 "match":    len([r for r in comparison if r["status"] == "match"    and r["field_type"] == "text"]),
                 "disagree": len([r for r in comparison if r["status"] == "disagree" and r["field_type"] == "text"]),
             }
+        }
+
+    output = {
+        "plan_id":              plan_id,
+        "plan_name":            plan_name,
+        "compared_at":          str(date.today()),
+        "v1_token_stats":       v1_tokens,
+        "v2_token_stats":       v2_tokens,
+        "v3_token_stats":       v3_tokens,
+        "v2_results":           v2_results,
+        "v3_results":           v3_results,
+        "v2_field_comparison":  v2_comparison,
+        "v3_field_comparison":  v3_comparison,
+        "summary": {
+            "v2": _summary_block(v2_comparison),
+            "v3": _summary_block(v3_comparison),
         }
     }
 
@@ -619,35 +715,53 @@ def save_comparison(
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    print("=" * 64)
-    print("  EXTRACTOR COMPARISON — V1 Full Scan vs V2 Targeted Search")
-    print(f"  Plan: {PLAN_ID}")
-    print("=" * 64)
+    # ── Resolve plan from command-line argument ────────────────────────────────
+    plan_id = sys.argv[1] if len(sys.argv) > 1 else "PLAN_001"
+
+    try:
+        ctx = resolve_plan(plan_id)
+    except ValueError as e:
+        print(f"\nError: {e}")
+        sys.exit(1)
+
+    plan_name      = ctx["plan_name"]
+    spd_doc_id     = ctx["spd_doc_id"]
+    processed_path = ctx["processed_path"]
+    facts_path     = ctx["facts_path"]
+
+    print("=" * 76)
+    print("  EXTRACTOR COMPARISON — V1 Full Scan vs V2 Static vs V3 Dynamic")
+    print(f"  Plan: {plan_id} — {plan_name}")
+    print("=" * 76)
 
     # Step 1 — Load V1 baseline
     print("\n" + "═" * 60)
     print("STEP 1 — Loading V1 baseline from stored JSON")
     print("═" * 60)
-    v1_results, plan_name = load_v1_baseline()
-    print(f"  Loaded: {FACTS_PATH}")
+    v1_results = load_v1_baseline(plan_id, facts_path)
+    print(f"  Loaded: {facts_path}")
     print(f"  Plan:   {plan_name}")
     print(f"  V1 extractor version: {v1_results.get('extractor_version', 'v1')}")
 
     # Step 2 — Measure V1 tokens
-    v1_tokens = measure_v1_tokens(plan_name)
+    v1_tokens = measure_v1_tokens(plan_name, plan_id, processed_path)
 
     # Step 3 — Run V2
-    v2_results, v2_tokens = run_v2(plan_name)
+    v2_results, v2_tokens = run_v2(plan_name, plan_id, spd_doc_id)
 
-    # Step 4 — Compare
+    # Step 3b — Run V3
+    v3_results, v3_tokens = run_v3(plan_name, plan_id, spd_doc_id)
+
+    # Step 4 — Compare both against V1
     print("\n" + "═" * 60)
-    print("STEP 4 — Comparing field by field")
+    print("STEP 4 — Comparing field by field (V2 vs V1, V3 vs V1)")
     print("═" * 60 + "\n")
-    comparison = compare_results(v1_results, v2_results)
+    v2_comparison = compare_results(v1_results, v2_results)
+    v3_comparison = compare_results(v1_results, v3_results)
 
     # Step 5 — Report + save
-    print_report(plan_name, v1_tokens, v2_tokens, comparison)
-    save_comparison(plan_name, v1_tokens, v2_tokens, v2_results, comparison)
+    print_report(plan_name, plan_id, v1_tokens, v2_tokens, v3_tokens, v2_comparison, v3_comparison)
+    save_comparison(plan_name, plan_id, v1_tokens, v2_tokens, v3_tokens, v2_results, v3_results, v2_comparison, v3_comparison)
 
 
 if __name__ == "__main__":

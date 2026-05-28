@@ -1,0 +1,843 @@
+{
+  "plan_id": "PLAN_002",
+  "plan_name": "Prudential Employee Savings Plan (PESP)",
+  "compared_at": "2026-05-27",
+  "v1_token_stats": {
+    "extractor": "v1",
+    "total_input_tokens": 104608,
+    "total_output_tokens": 6047,
+    "total_llm_calls": 9,
+    "by_batch": {
+      "batch_1": {
+        "chunks": 50,
+        "input_tokens": 12450,
+        "output_tokens": 974
+      },
+      "batch_2": {
+        "chunks": 50,
+        "input_tokens": 13479,
+        "output_tokens": 856
+      },
+      "batch_3": {
+        "chunks": 50,
+        "input_tokens": 15107,
+        "output_tokens": 794
+      },
+      "batch_4": {
+        "chunks": 50,
+        "input_tokens": 14665,
+        "output_tokens": 369
+      },
+      "batch_5": {
+        "chunks": 50,
+        "input_tokens": 14720,
+        "output_tokens": 570
+      },
+      "batch_6": {
+        "chunks": 50,
+        "input_tokens": 13051,
+        "output_tokens": 618
+      },
+      "batch_7": {
+        "chunks": 50,
+        "input_tokens": 10144,
+        "output_tokens": 753
+      },
+      "batch_8": {
+        "chunks": 50,
+        "input_tokens": 7988,
+        "output_tokens": 522
+      },
+      "batch_9": {
+        "chunks": 12,
+        "input_tokens": 3004,
+        "output_tokens": 591
+      }
+    },
+    "elapsed_seconds": 639.9
+  },
+  "v2_token_stats": {
+    "extractor": "v2",
+    "total_input_tokens": 22534,
+    "total_output_tokens": 1339,
+    "total_llm_calls": 6,
+    "by_group": {
+      "plan_info": {
+        "input_tokens": 2717,
+        "output_tokens": 49,
+        "chunks_used": 16,
+        "skipped": false
+      },
+      "features": {
+        "input_tokens": 4780,
+        "output_tokens": 68,
+        "chunks_used": 16,
+        "skipped": false
+      },
+      "employer_match": {
+        "input_tokens": 3144,
+        "output_tokens": 331,
+        "chunks_used": 12,
+        "skipped": false
+      },
+      "nonelective_contribution": {
+        "input_tokens": 3609,
+        "output_tokens": 142,
+        "chunks_used": 16,
+        "skipped": false
+      },
+      "vesting": {
+        "input_tokens": 2966,
+        "output_tokens": 577,
+        "chunks_used": 11,
+        "skipped": false
+      },
+      "eligibility": {
+        "input_tokens": 5318,
+        "output_tokens": 172,
+        "chunks_used": 23,
+        "skipped": false
+      }
+    },
+    "elapsed_seconds": 42.8
+  },
+  "v3_token_stats": {
+    "extractor": "v3",
+    "query_generation": {
+      "input_tokens": 773,
+      "output_tokens": 323,
+      "generated_queries": {
+        "plan_info": [
+          "PESP plan type 401k savings plan description",
+          "record keeper administrator Prudential Employee Savings Plan",
+          "plan year end fiscal year PESP"
+        ],
+        "features": [
+          "automatic enrollment default contribution rate PESP",
+          "loan provision hardship withdrawal Roth after-tax contributions",
+          "Roth 401k after-tax employee contribution options PESP"
+        ],
+        "employer_match": [
+          "employer matching contribution formula percentage of pay",
+          "company match tiers contribution rate PESP 401k",
+          "maximum matching contribution true-up provision annual match"
+        ],
+        "nonelective_contribution": [
+          "nonelective employer contribution percentage of compensation PESP",
+          "profit sharing discretionary contribution formula plan",
+          "automatic employer contribution regardless of employee deferral"
+        ],
+        "vesting": [
+          "vesting schedule employer matching contributions years of service",
+          "graded cliff vesting schedule PESP matching contributions",
+          "immediate vesting triggers retirement disability employee contributions"
+        ],
+        "eligibility": [
+          "eligibility requirements age service hours PESP enrollment",
+          "entry date minimum age service requirement employee savings plan",
+          "eligible employee participation conditions hours of service PESP"
+        ]
+      }
+    },
+    "total_input_tokens": 31551,
+    "total_output_tokens": 1682,
+    "total_llm_calls": 7,
+    "by_group": {
+      "plan_info": {
+        "input_tokens": 5273,
+        "output_tokens": 49,
+        "chunks_used": 24,
+        "skipped": false
+      },
+      "features": {
+        "input_tokens": 7269,
+        "output_tokens": 68,
+        "chunks_used": 24,
+        "skipped": false
+      },
+      "employer_match": {
+        "input_tokens": 3620,
+        "output_tokens": 348,
+        "chunks_used": 13,
+        "skipped": false
+      },
+      "nonelective_contribution": {
+        "input_tokens": 6000,
+        "output_tokens": 165,
+        "chunks_used": 23,
+        "skipped": false
+      },
+      "vesting": {
+        "input_tokens": 4309,
+        "output_tokens": 529,
+        "chunks_used": 16,
+        "skipped": false
+      },
+      "eligibility": {
+        "input_tokens": 4307,
+        "output_tokens": 200,
+        "chunks_used": 17,
+        "skipped": false
+      }
+    },
+    "elapsed_seconds": 45.5
+  },
+  "v2_results": {
+    "record_keeper": "Empower",
+    "nonelective_contribution": {
+      "available": true,
+      "pct_of_pay": null,
+      "contribution_type": "Qualified Non-Elective Contributions",
+      "formula_readable": "The Company may, in its sole discretion, make Qualified Non-Elective Contributions to PESP. No specific percentage or formula is stated. These contributions are 100% vested and nonforfeitable when allocated, and must generally be made to the Plan by the end of the 12-month period following the applicable Plan Year."
+    },
+    "employer_match": {
+      "available": true,
+      "tiers": [
+        {
+          "tier": 1,
+          "from_contrib_pct": 0.0,
+          "to_contrib_pct": 4.0,
+          "match_rate_pct": 100.0
+        }
+      ],
+      "max_match_pct_of_pay": 4.0,
+      "full_match_requires_contrib_pct": 4.0,
+      "true_up_provision": true,
+      "formula_readable": "For Prudential employees, the Company matches 100% of Before-Tax and Roth 401(k) contributions (excluding Catch-Up Contributions) up to a combined maximum of 4% of Eligible Earnings each payroll period, resulting in a maximum Company match of 4% of Eligible Earnings. For Assurance IQ employees (effective January 1, 2024), the Company matches 50% of Before-Tax and Roth 401(k) contributions up to a combined maximum of 4% of Eligible Earnings, resulting in a maximum Company match of 2% of Eligible Earnings. A true-up contribution is made in the first quarter of each Plan Year to ensure participants receive the full Company Matching Contribution to which they are entitled based on their prior year's contributions."
+    },
+    "eligibility": {
+      "conditions": [],
+      "entry_dates": "First day of Employment with the Company",
+      "formula_readable": "Generally, all full-time and part-time Employees are eligible to participate in PESP. Employees may enroll at any time starting on their first day of Employment with Prudential or Assurance IQ. If an eligible Employee does not affirmatively elect to participate or decline within 30 days of hire (applicable to those hired on or after January 1, 2001 at Prudential, or on or after August 1, 2023 at Assurance IQ), they will be automatically enrolled at a 4% contribution rate."
+    },
+    "vesting": {
+      "employee_contributions": {
+        "type": "immediate",
+        "formula_readable": "Employees are always fully vested in their Before-Tax Contributions, Roth 401(k) Contributions, Catch-Up Contributions, After-Tax Contributions, Rollover Contributions, Qualified Matching Contributions, Qualified Non-Elective Contributions, and any related investment results."
+      },
+      "employer_match": {
+        "type": "cliff",
+        "tiers": [
+          {
+            "years_of_service": 3,
+            "vested_pct": 100.0
+          }
+        ],
+        "immediate_vest_triggers": [
+          "Reaching age 65 while employed by the Company or any of its Affiliates",
+          "Becoming totally disabled (eligible to receive long term disability benefits under The Prudential Welfare Benefits Plan)",
+          "Death while employed by the Company or any of its Affiliates",
+          "Having been 100% vested during a prior period of service with the Company or any of its Affiliates",
+          "Current or former employees of Assurance IQ are fully vested in Company Matching Contributions in their Assurance Match Account regardless of years of service"
+        ],
+        "formula_readable": "Participants become 100% vested in Company Matching Contributions and Discretionary Company Contributions upon completing three years of Vesting Service. Vesting is also accelerated to 100% upon reaching age 65 while employed, becoming totally disabled (as defined by eligibility for long term disability benefits), dying while employed, or having been 100% vested in a prior period of service. If a participant leaves before full vesting, non-vested amounts are forfeited when the Period of Separation equals five years. Current and former employees of Assurance IQ are 100% vested in their Assurance Match Account regardless of years of service."
+      },
+      "nonelective": {
+        "type": "cliff",
+        "formula_readable": "Discretionary Company Contributions follow the same vesting schedule as Company Matching Contributions: participants become 100% vested upon completing three years of Vesting Service, reaching age 65 while employed, becoming totally disabled, dying while employed, or having been 100% vested during a prior period of service. Qualified Non-Elective Contributions are immediately 100% vested."
+      }
+    },
+    "plan_type": "401(k)",
+    "plan_year_end": "December 31",
+    "features": {
+      "auto_enrollment": true,
+      "loan_provision": true,
+      "hardship_withdrawal": true,
+      "roth_contributions": true,
+      "after_tax_contributions": true
+    },
+    "extracted_from_doc_id": "DOC_004",
+    "extracted_at": "2026-05-27",
+    "extractor_version": "v2"
+  },
+  "v3_results": {
+    "record_keeper": "Empower",
+    "nonelective_contribution": {
+      "available": true,
+      "pct_of_pay": null,
+      "contribution_type": "Qualified Non-Elective Contributions",
+      "formula_readable": "The Company may, in its sole discretion, make Qualified Non-Elective Contributions to PESP on a participant's behalf. If made, they are credited to the participant's Qualified Non-Elective Contributions Account and are always fully vested. No specific percentage of pay or fixed formula is stated; the amount and eligibility are determined at the Company's sole discretion, and participants will be notified if such a contribution is made."
+    },
+    "employer_match": {
+      "available": true,
+      "tiers": [
+        {
+          "tier": 1,
+          "from_contrib_pct": 0.0,
+          "to_contrib_pct": 4.0,
+          "match_rate_pct": 100.0
+        }
+      ],
+      "max_match_pct_of_pay": 4.0,
+      "full_match_requires_contrib_pct": 4.0,
+      "true_up_provision": true,
+      "formula_readable": "For Prudential employees, the Company matches 100% of Before-Tax and Roth 401(k) contributions (excluding Catch-Up Contributions) up to a combined maximum of 4% of Eligible Earnings each payroll period, resulting in a maximum Company match of 4% of Eligible Earnings. For Assurance IQ employees (effective January 1, 2024), the Company matches 50% of Before-Tax and Roth 401(k) contributions up to a combined maximum of 4% of Eligible Earnings, resulting in a maximum Company match of 2% of Eligible Earnings. A year-end true-up is performed in the first quarter of each Plan Year to ensure eligible employees receive the full Company Matching Contribution for the prior year; employees must be actively employed on December 31 of the Plan Year to qualify for the true-up."
+    },
+    "eligibility": {
+      "conditions": [],
+      "entry_dates": "First day of Employment with Prudential or Assurance IQ",
+      "formula_readable": "Generally, all full-time and part-time Employees of Prudential or Assurance IQ (including Prudential Advisors Financial Professional Associates) are eligible to participate in PESP. There are no minimum age or service requirements stated. Employees may enroll at any time starting on their first day of employment. If an eligible employee does not affirmatively elect to participate or decline within 30 days of hire (applicable to those hired on or after January 1, 2001 at Prudential, or on or after August 1, 2023 at Assurance IQ), they are automatically enrolled at a 4% contribution rate."
+    },
+    "vesting": {
+      "employee_contributions": {
+        "type": "immediate",
+        "formula_readable": "Participants are immediately and always fully vested in their Before-Tax Contributions, Roth 401(k) Contributions, Catch-Up Contributions, After-Tax Contributions, and Rollover Contributions, plus any related investment results."
+      },
+      "employer_match": {
+        "type": "cliff",
+        "tiers": [
+          {
+            "years_of_service": 3,
+            "vested_pct": 100.0
+          }
+        ],
+        "immediate_vest_triggers": [
+          "Attainment of age 65 while employed by the Company or any of its Affiliates",
+          "Death while employed by the Company or any of its Affiliates",
+          "Becoming totally disabled (eligible to receive long-term disability benefits under The Prudential Welfare Benefits Plan)",
+          "Current or former Employees of Assurance IQ are fully vested in Company Matching Contributions in their Assurance Match Account regardless of years of service",
+          "Was 100% vested during a prior period of service with the Company or any of its Affiliates"
+        ],
+        "formula_readable": "Participants become 100% vested in Company Matching Contributions and Discretionary Company Contributions upon completing three years of Vesting Service. Vesting is also accelerated upon reaching age 65 while employed, death while employed, or becoming totally disabled. Assurance IQ employees are immediately 100% vested in their Assurance Match Account. Prior to completing three years of service, participants are 0% vested; unvested amounts are forfeited if the Period of Separation reaches five years."
+      },
+      "nonelective": {
+        "type": "immediate",
+        "formula_readable": "Qualified Matching Contributions and Qualified Non-Elective Contributions are always 100% vested and nonforfeitable when allocated. Discretionary Company Contributions are subject to the same vesting rules as Company Matching Contributions (100% vested after three years of Vesting Service, or upon age 65, death, or total disability)."
+      }
+    },
+    "plan_type": "401(k)",
+    "plan_year_end": "December 31",
+    "features": {
+      "auto_enrollment": true,
+      "loan_provision": true,
+      "hardship_withdrawal": true,
+      "roth_contributions": true,
+      "after_tax_contributions": true
+    },
+    "extracted_from_doc_id": "DOC_004",
+    "extracted_at": "2026-05-27",
+    "extractor_version": "v3"
+  },
+  "v2_field_comparison": [
+    {
+      "field": "vesting.employee_contributions.formula_readable",
+      "field_type": "text",
+      "status": "match",
+      "v1": "Employees are always fully vested in their Before-Tax Contributions, Roth 401(k) Contributions, Catch-Up Contributions, After-Tax Contributions, Rollover Contributions, Qualified Matching Contributions, Qualified Non-Elective Contributions, and any related investment results.",
+      "v2": "Employees are always fully vested in their Before-Tax Contributions, Roth 401(k) Contributions, Catch-Up Contributions, After-Tax Contributions, Rollover Contributions, Qualified Matching Contributions, Qualified Non-Elective Contributions, and any related investment results."
+    },
+    {
+      "field": "vesting.employee_contributions.type",
+      "field_type": "structured",
+      "status": "match",
+      "v1": "immediate",
+      "v2": "immediate"
+    },
+    {
+      "field": "vesting.nonelective.formula_readable",
+      "field_type": "text",
+      "status": "disagree",
+      "v1": "Discretionary Company Contributions follow the same vesting schedule as Company Matching Contributions: three years of Vesting Service for full vesting, or upon reaching age 65, death, or commencement of long-term disability benefits.",
+      "v2": "Discretionary Company Contributions follow the same vesting schedule as Company Matching Contributions: participants become 100% vested upon completing three years of Vesting Service, reaching age 65 while employed, becoming totally disabled, dying while employed, or having been 100% vested during a prior period of service. Qualified Non-Elective Contributions are immediately 100% vested."
+    },
+    {
+      "field": "vesting.nonelective.type",
+      "field_type": "structured",
+      "status": "match",
+      "v1": "cliff",
+      "v2": "cliff"
+    },
+    {
+      "field": "vesting.employer_match.immediate_vest_triggers",
+      "field_type": "structured",
+      "status": "disagree",
+      "v1": [
+        "Reach age 65 (normal retirement age) while employed by the Company or any of its Affiliates",
+        "Become totally disabled (eligible to receive long term disability benefits under The Prudential Welfare Benefits Plan)",
+        "Die while employed by the Company or any of its Affiliates",
+        "Were 100% vested during a prior period of service with the Company or any of its Affiliates"
+      ],
+      "v2": [
+        "Reaching age 65 while employed by the Company or any of its Affiliates",
+        "Becoming totally disabled (eligible to receive long term disability benefits under The Prudential Welfare Benefits Plan)",
+        "Death while employed by the Company or any of its Affiliates",
+        "Having been 100% vested during a prior period of service with the Company or any of its Affiliates",
+        "Current or former employees of Assurance IQ are fully vested in Company Matching Contributions in their Assurance Match Account regardless of years of service"
+      ]
+    },
+    {
+      "field": "vesting.employer_match.tiers",
+      "field_type": "structured",
+      "status": "match",
+      "v1": [
+        {
+          "years_of_service": 3,
+          "vested_pct": 100
+        }
+      ],
+      "v2": [
+        {
+          "years_of_service": 3,
+          "vested_pct": 100.0
+        }
+      ]
+    },
+    {
+      "field": "vesting.employer_match.formula_readable",
+      "field_type": "text",
+      "status": "disagree",
+      "v1": "Generally, employees become vested in Company Matching Contributions and Discretionary Company Contributions after completing three years of Vesting Service, reaching age 65, dying, or beginning to receive long-term disability benefits under The Prudential Welfare Benefits Plan, whichever comes first. Employees of Assurance IQ are fully vested in Company Matching Contributions in their Assurance Match Account.",
+      "v2": "Participants become 100% vested in Company Matching Contributions and Discretionary Company Contributions upon completing three years of Vesting Service. Vesting is also accelerated to 100% upon reaching age 65 while employed, becoming totally disabled (as defined by eligibility for long term disability benefits), dying while employed, or having been 100% vested in a prior period of service. If a participant leaves before full vesting, non-vested amounts are forfeited when the Period of Separation equals five years. Current and former employees of Assurance IQ are 100% vested in their Assurance Match Account regardless of years of service."
+    },
+    {
+      "field": "vesting.employer_match.type",
+      "field_type": "structured",
+      "status": "match",
+      "v1": "cliff",
+      "v2": "cliff"
+    },
+    {
+      "field": "employer_match.full_match_requires_contrib_pct",
+      "field_type": "structured",
+      "status": "match",
+      "v1": 4.0,
+      "v2": 4.0
+    },
+    {
+      "field": "employer_match.formula_readable",
+      "field_type": "text",
+      "status": "disagree",
+      "v1": "The Company matches 100% (50% for Employees of Assurance IQ) of Before-Tax and Roth 401(k) Contributions (excluding Catch-Up Contributions), up to a combined maximum of 4% of Eligible Earnings per period, subject to Internal Revenue Code limitations. A True-Up Feature is available.",
+      "v2": "For Prudential employees, the Company matches 100% of Before-Tax and Roth 401(k) contributions (excluding Catch-Up Contributions) up to a combined maximum of 4% of Eligible Earnings each payroll period, resulting in a maximum Company match of 4% of Eligible Earnings. For Assurance IQ employees (effective January 1, 2024), the Company matches 50% of Before-Tax and Roth 401(k) contributions up to a combined maximum of 4% of Eligible Earnings, resulting in a maximum Company match of 2% of Eligible Earnings. A true-up contribution is made in the first quarter of each Plan Year to ensure participants receive the full Company Matching Contribution to which they are entitled based on their prior year's contributions."
+    },
+    {
+      "field": "employer_match.max_match_pct_of_pay",
+      "field_type": "structured",
+      "status": "match",
+      "v1": 4.0,
+      "v2": 4.0
+    },
+    {
+      "field": "employer_match.available",
+      "field_type": "structured",
+      "status": "match",
+      "v1": true,
+      "v2": true
+    },
+    {
+      "field": "employer_match.tiers",
+      "field_type": "structured",
+      "status": "match",
+      "v1": [
+        {
+          "tier": 1,
+          "from_contrib_pct": 0,
+          "to_contrib_pct": 4,
+          "match_rate_pct": 100
+        }
+      ],
+      "v2": [
+        {
+          "tier": 1,
+          "from_contrib_pct": 0.0,
+          "to_contrib_pct": 4.0,
+          "match_rate_pct": 100.0
+        }
+      ]
+    },
+    {
+      "field": "employer_match.true_up_provision",
+      "field_type": "structured",
+      "status": "match",
+      "v1": true,
+      "v2": true
+    },
+    {
+      "field": "nonelective_contribution.contribution_type",
+      "field_type": "text",
+      "status": "disagree",
+      "v1": "Discretionary Company Contribution",
+      "v2": "Qualified Non-Elective Contributions"
+    },
+    {
+      "field": "nonelective_contribution.available",
+      "field_type": "structured",
+      "status": "match",
+      "v1": true,
+      "v2": true
+    },
+    {
+      "field": "nonelective_contribution.formula_readable",
+      "field_type": "text",
+      "status": "disagree",
+      "v1": "The plan references Discretionary Company Contributions and Qualified Non-Elective Contributions, but specific amounts or percentages are not defined in this document.",
+      "v2": "The Company may, in its sole discretion, make Qualified Non-Elective Contributions to PESP. No specific percentage or formula is stated. These contributions are 100% vested and nonforfeitable when allocated, and must generally be made to the Plan by the end of the 12-month period following the applicable Plan Year."
+    },
+    {
+      "field": "nonelective_contribution.pct_of_pay",
+      "field_type": "structured",
+      "status": "both_null",
+      "v1": null,
+      "v2": null
+    },
+    {
+      "field": "plan_year_end",
+      "field_type": "structured",
+      "status": "match",
+      "v1": "December 31",
+      "v2": "December 31"
+    },
+    {
+      "field": "eligibility.conditions",
+      "field_type": "structured",
+      "status": "missed",
+      "v1": [
+        {
+          "type": "service",
+          "min_value": 1,
+          "unit": "years"
+        }
+      ],
+      "v2": []
+    },
+    {
+      "field": "eligibility.formula_readable",
+      "field_type": "text",
+      "status": "disagree",
+      "v1": "Generally, all full-time and part-time Employees of Prudential or Assurance IQ, including Prudential Advisors Financial Professional Associates, are eligible to participate in PESP. Employees may enroll starting on their first day of employment. No minimum age or service requirement is stated for eligibility.",
+      "v2": "Generally, all full-time and part-time Employees are eligible to participate in PESP. Employees may enroll at any time starting on their first day of Employment with Prudential or Assurance IQ. If an eligible Employee does not affirmatively elect to participate or decline within 30 days of hire (applicable to those hired on or after January 1, 2001 at Prudential, or on or after August 1, 2023 at Assurance IQ), they will be automatically enrolled at a 4% contribution rate."
+    },
+    {
+      "field": "eligibility.entry_dates",
+      "field_type": "structured",
+      "status": "disagree",
+      "v1": "Employees may enroll at any time starting on their first day of employment. Automatic enrollment occurs if no affirmative election is made within 30 days of hire (for those hired on or after January 1, 2001, or Assurance IQ employees who joined on or after August 1, 2023).",
+      "v2": "First day of Employment with the Company"
+    },
+    {
+      "field": "plan_type",
+      "field_type": "structured",
+      "status": "match",
+      "v1": "401(k)",
+      "v2": "401(k)"
+    },
+    {
+      "field": "features.roth_contributions",
+      "field_type": "structured",
+      "status": "match",
+      "v1": true,
+      "v2": true
+    },
+    {
+      "field": "features.auto_enrollment",
+      "field_type": "structured",
+      "status": "match",
+      "v1": true,
+      "v2": true
+    },
+    {
+      "field": "features.loan_provision",
+      "field_type": "structured",
+      "status": "match",
+      "v1": true,
+      "v2": true
+    },
+    {
+      "field": "features.hardship_withdrawal",
+      "field_type": "structured",
+      "status": "match",
+      "v1": true,
+      "v2": true
+    },
+    {
+      "field": "features.after_tax_contributions",
+      "field_type": "structured",
+      "status": "match",
+      "v1": true,
+      "v2": true
+    },
+    {
+      "field": "record_keeper",
+      "field_type": "structured",
+      "status": "match",
+      "v1": "Empower",
+      "v2": "Empower"
+    }
+  ],
+  "v3_field_comparison": [
+    {
+      "field": "vesting.employee_contributions.formula_readable",
+      "field_type": "text",
+      "status": "disagree",
+      "v1": "Employees are always fully vested in their Before-Tax Contributions, Roth 401(k) Contributions, Catch-Up Contributions, After-Tax Contributions, Rollover Contributions, Qualified Matching Contributions, Qualified Non-Elective Contributions, and any related investment results.",
+      "v2": "Participants are immediately and always fully vested in their Before-Tax Contributions, Roth 401(k) Contributions, Catch-Up Contributions, After-Tax Contributions, and Rollover Contributions, plus any related investment results."
+    },
+    {
+      "field": "vesting.employee_contributions.type",
+      "field_type": "structured",
+      "status": "match",
+      "v1": "immediate",
+      "v2": "immediate"
+    },
+    {
+      "field": "vesting.nonelective.formula_readable",
+      "field_type": "text",
+      "status": "disagree",
+      "v1": "Discretionary Company Contributions follow the same vesting schedule as Company Matching Contributions: three years of Vesting Service for full vesting, or upon reaching age 65, death, or commencement of long-term disability benefits.",
+      "v2": "Qualified Matching Contributions and Qualified Non-Elective Contributions are always 100% vested and nonforfeitable when allocated. Discretionary Company Contributions are subject to the same vesting rules as Company Matching Contributions (100% vested after three years of Vesting Service, or upon age 65, death, or total disability)."
+    },
+    {
+      "field": "vesting.nonelective.type",
+      "field_type": "structured",
+      "status": "disagree",
+      "v1": "cliff",
+      "v2": "immediate"
+    },
+    {
+      "field": "vesting.employer_match.immediate_vest_triggers",
+      "field_type": "structured",
+      "status": "disagree",
+      "v1": [
+        "Reach age 65 (normal retirement age) while employed by the Company or any of its Affiliates",
+        "Become totally disabled (eligible to receive long term disability benefits under The Prudential Welfare Benefits Plan)",
+        "Die while employed by the Company or any of its Affiliates",
+        "Were 100% vested during a prior period of service with the Company or any of its Affiliates"
+      ],
+      "v2": [
+        "Attainment of age 65 while employed by the Company or any of its Affiliates",
+        "Death while employed by the Company or any of its Affiliates",
+        "Becoming totally disabled (eligible to receive long-term disability benefits under The Prudential Welfare Benefits Plan)",
+        "Current or former Employees of Assurance IQ are fully vested in Company Matching Contributions in their Assurance Match Account regardless of years of service",
+        "Was 100% vested during a prior period of service with the Company or any of its Affiliates"
+      ]
+    },
+    {
+      "field": "vesting.employer_match.tiers",
+      "field_type": "structured",
+      "status": "match",
+      "v1": [
+        {
+          "years_of_service": 3,
+          "vested_pct": 100
+        }
+      ],
+      "v2": [
+        {
+          "years_of_service": 3,
+          "vested_pct": 100.0
+        }
+      ]
+    },
+    {
+      "field": "vesting.employer_match.formula_readable",
+      "field_type": "text",
+      "status": "disagree",
+      "v1": "Generally, employees become vested in Company Matching Contributions and Discretionary Company Contributions after completing three years of Vesting Service, reaching age 65, dying, or beginning to receive long-term disability benefits under The Prudential Welfare Benefits Plan, whichever comes first. Employees of Assurance IQ are fully vested in Company Matching Contributions in their Assurance Match Account.",
+      "v2": "Participants become 100% vested in Company Matching Contributions and Discretionary Company Contributions upon completing three years of Vesting Service. Vesting is also accelerated upon reaching age 65 while employed, death while employed, or becoming totally disabled. Assurance IQ employees are immediately 100% vested in their Assurance Match Account. Prior to completing three years of service, participants are 0% vested; unvested amounts are forfeited if the Period of Separation reaches five years."
+    },
+    {
+      "field": "vesting.employer_match.type",
+      "field_type": "structured",
+      "status": "match",
+      "v1": "cliff",
+      "v2": "cliff"
+    },
+    {
+      "field": "employer_match.full_match_requires_contrib_pct",
+      "field_type": "structured",
+      "status": "match",
+      "v1": 4.0,
+      "v2": 4.0
+    },
+    {
+      "field": "employer_match.formula_readable",
+      "field_type": "text",
+      "status": "disagree",
+      "v1": "The Company matches 100% (50% for Employees of Assurance IQ) of Before-Tax and Roth 401(k) Contributions (excluding Catch-Up Contributions), up to a combined maximum of 4% of Eligible Earnings per period, subject to Internal Revenue Code limitations. A True-Up Feature is available.",
+      "v2": "For Prudential employees, the Company matches 100% of Before-Tax and Roth 401(k) contributions (excluding Catch-Up Contributions) up to a combined maximum of 4% of Eligible Earnings each payroll period, resulting in a maximum Company match of 4% of Eligible Earnings. For Assurance IQ employees (effective January 1, 2024), the Company matches 50% of Before-Tax and Roth 401(k) contributions up to a combined maximum of 4% of Eligible Earnings, resulting in a maximum Company match of 2% of Eligible Earnings. A year-end true-up is performed in the first quarter of each Plan Year to ensure eligible employees receive the full Company Matching Contribution for the prior year; employees must be actively employed on December 31 of the Plan Year to qualify for the true-up."
+    },
+    {
+      "field": "employer_match.max_match_pct_of_pay",
+      "field_type": "structured",
+      "status": "match",
+      "v1": 4.0,
+      "v2": 4.0
+    },
+    {
+      "field": "employer_match.available",
+      "field_type": "structured",
+      "status": "match",
+      "v1": true,
+      "v2": true
+    },
+    {
+      "field": "employer_match.tiers",
+      "field_type": "structured",
+      "status": "match",
+      "v1": [
+        {
+          "tier": 1,
+          "from_contrib_pct": 0,
+          "to_contrib_pct": 4,
+          "match_rate_pct": 100
+        }
+      ],
+      "v2": [
+        {
+          "tier": 1,
+          "from_contrib_pct": 0.0,
+          "to_contrib_pct": 4.0,
+          "match_rate_pct": 100.0
+        }
+      ]
+    },
+    {
+      "field": "employer_match.true_up_provision",
+      "field_type": "structured",
+      "status": "match",
+      "v1": true,
+      "v2": true
+    },
+    {
+      "field": "nonelective_contribution.contribution_type",
+      "field_type": "text",
+      "status": "disagree",
+      "v1": "Discretionary Company Contribution",
+      "v2": "Qualified Non-Elective Contributions"
+    },
+    {
+      "field": "nonelective_contribution.available",
+      "field_type": "structured",
+      "status": "match",
+      "v1": true,
+      "v2": true
+    },
+    {
+      "field": "nonelective_contribution.formula_readable",
+      "field_type": "text",
+      "status": "disagree",
+      "v1": "The plan references Discretionary Company Contributions and Qualified Non-Elective Contributions, but specific amounts or percentages are not defined in this document.",
+      "v2": "The Company may, in its sole discretion, make Qualified Non-Elective Contributions to PESP on a participant's behalf. If made, they are credited to the participant's Qualified Non-Elective Contributions Account and are always fully vested. No specific percentage of pay or fixed formula is stated; the amount and eligibility are determined at the Company's sole discretion, and participants will be notified if such a contribution is made."
+    },
+    {
+      "field": "nonelective_contribution.pct_of_pay",
+      "field_type": "structured",
+      "status": "both_null",
+      "v1": null,
+      "v2": null
+    },
+    {
+      "field": "plan_year_end",
+      "field_type": "structured",
+      "status": "match",
+      "v1": "December 31",
+      "v2": "December 31"
+    },
+    {
+      "field": "eligibility.conditions",
+      "field_type": "structured",
+      "status": "missed",
+      "v1": [
+        {
+          "type": "service",
+          "min_value": 1,
+          "unit": "years"
+        }
+      ],
+      "v2": []
+    },
+    {
+      "field": "eligibility.formula_readable",
+      "field_type": "text",
+      "status": "disagree",
+      "v1": "Generally, all full-time and part-time Employees of Prudential or Assurance IQ, including Prudential Advisors Financial Professional Associates, are eligible to participate in PESP. Employees may enroll starting on their first day of employment. No minimum age or service requirement is stated for eligibility.",
+      "v2": "Generally, all full-time and part-time Employees of Prudential or Assurance IQ (including Prudential Advisors Financial Professional Associates) are eligible to participate in PESP. There are no minimum age or service requirements stated. Employees may enroll at any time starting on their first day of employment. If an eligible employee does not affirmatively elect to participate or decline within 30 days of hire (applicable to those hired on or after January 1, 2001 at Prudential, or on or after August 1, 2023 at Assurance IQ), they are automatically enrolled at a 4% contribution rate."
+    },
+    {
+      "field": "eligibility.entry_dates",
+      "field_type": "structured",
+      "status": "disagree",
+      "v1": "Employees may enroll at any time starting on their first day of employment. Automatic enrollment occurs if no affirmative election is made within 30 days of hire (for those hired on or after January 1, 2001, or Assurance IQ employees who joined on or after August 1, 2023).",
+      "v2": "First day of Employment with Prudential or Assurance IQ"
+    },
+    {
+      "field": "plan_type",
+      "field_type": "structured",
+      "status": "match",
+      "v1": "401(k)",
+      "v2": "401(k)"
+    },
+    {
+      "field": "features.roth_contributions",
+      "field_type": "structured",
+      "status": "match",
+      "v1": true,
+      "v2": true
+    },
+    {
+      "field": "features.auto_enrollment",
+      "field_type": "structured",
+      "status": "match",
+      "v1": true,
+      "v2": true
+    },
+    {
+      "field": "features.loan_provision",
+      "field_type": "structured",
+      "status": "match",
+      "v1": true,
+      "v2": true
+    },
+    {
+      "field": "features.hardship_withdrawal",
+      "field_type": "structured",
+      "status": "match",
+      "v1": true,
+      "v2": true
+    },
+    {
+      "field": "features.after_tax_contributions",
+      "field_type": "structured",
+      "status": "match",
+      "v1": true,
+      "v2": true
+    },
+    {
+      "field": "record_keeper",
+      "field_type": "structured",
+      "status": "match",
+      "v1": "Empower",
+      "v2": "Empower"
+    }
+  ],
+  "summary": {
+    "v2": {
+      "structured": {
+        "match": 18,
+        "missed": 1,
+        "disagree": 2,
+        "v2_extra": 0,
+        "both_null": 1
+      },
+      "text": {
+        "total": 7,
+        "match": 1,
+        "disagree": 6
+      }
+    },
+    "v3": {
+      "structured": {
+        "match": 17,
+        "missed": 1,
+        "disagree": 3,
+        "v2_extra": 0,
+        "both_null": 1
+      },
+      "text": {
+        "total": 7,
+        "match": 0,
+        "disagree": 7
+      }
+    }
+  }
+}
