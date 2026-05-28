@@ -22,6 +22,45 @@ def print_section(title: str):
     print(f"\n── {title} {'─' * (46 - len(title))}")
 
 
+def _render_sources_table(sources: list[str]) -> str:
+    """
+    Parse pipe-delimited source citations and render as an aligned terminal table.
+    Expected format per line: Doc Type | Plan Name | Section | Page
+    Lines that are not pipe-delimited (e.g. markdown table separators) are skipped.
+    """
+    rows = []
+    for s in sources:
+        stripped = s.strip()
+        # Skip markdown table separator lines (e.g. |---|---|)
+        if stripped and set(stripped) <= set("|-: "):
+            continue
+        if "|" in stripped:
+            parts = [p.strip() for p in stripped.split("|") if p.strip()]
+            if parts:
+                while len(parts) < 4:
+                    parts.append("")
+                rows.append(parts[:4])
+
+    if not rows:
+        return ""
+
+    headers  = ["Type", "Plan", "Section", "Page"]
+    col_w    = [len(h) for h in headers]
+    for row in rows:
+        for i, cell in enumerate(row):
+            col_w[i] = max(col_w[i], len(cell))
+
+    sep = "  " + "─" * (sum(col_w) + 3 * (len(headers) - 1) + 2)
+    fmt = "  " + "  ".join(f"{{:<{w}}}" for w in col_w)
+
+    lines = [sep, fmt.format(*headers), sep]
+    for row in rows:
+        lines.append(fmt.format(*row))
+    lines.append(sep)
+
+    return "\n".join(lines)
+
+
 def print_answer(result: dict):
     """Display formatted answer from agent."""
     print("\n" + "═" * 52)
@@ -31,28 +70,28 @@ def print_answer(result: dict):
     print("-" * 52)
     print(result["answer"])
 
-    # Sources
+    # Sources — rendered as aligned table
     if result["sources"]:
         print("\nSOURCES:")
         print("-" * 52)
-        for source in result["sources"]:
-            print(f"  • {source}")
+        table = _render_sources_table(result["sources"])
+        if table:
+            print(table)
+        else:
+            # Fallback: plain bullets if parsing produced nothing
+            for source in result["sources"]:
+                print(f"  • {source}")
 
-    # Confidence
-    confidence = result["confidence"]
-    confidence_colors = {
-        "High":   "✅",
-        "Medium": "⚠️ ",
-        "Low":    "❌"
-    }
-    icon = confidence_colors.get(confidence, "•")
+    # Confidence — score-based percentage
+    confidence_pct   = result.get("confidence_pct", 0)
+    confidence_label = result.get("confidence", "Low")
+    icons = {"High": "🟢", "Medium": "🟡", "Low": "🔴"}
+    icon  = icons.get(confidence_label, "🔴")
 
-    print(f"\nCONFIDENCE: {icon} {confidence}")
-    if result.get("confidence_reason"):
-        print(f"  {result['confidence_reason']}")
+    print(f"\nCONFIDENCE: {confidence_pct}%  {icon}  ({confidence_label})")
 
     # Tool calls
-    print(f"\nRetrieval calls made: {result['tool_calls_made']}")
+    print(f"Retrieval calls made: {result['tool_calls_made']}")
     print("═" * 52)
 
 
