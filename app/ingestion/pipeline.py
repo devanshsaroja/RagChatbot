@@ -7,7 +7,7 @@ from app.ingestion.parser_docx import parse_docx
 from app.ingestion.parser_excel import parse_excel
 from app.ingestion.chunker import chunk_all
 from app.storage.vector_store import store_chunks
-from app.ingestion.fact_extractor import extract_plan_facts
+from app.ingestion.fact_extractor_v3 import extract_plan_facts_v3
 from app.registry.registry import update_plan_rules
 
 # ── Constants ─────────────────────────────────────────────────────────────────
@@ -158,10 +158,9 @@ def ingest_file(file_path: str, context: dict) -> dict:
     if context.get("doc_type") == "SPD" and context.get("plan_id"):
         print("\nStep 6/6 — Extracting plan facts...")
         try:
-            plan_rules = extract_plan_facts(
-                chunks=chunks,
-                plan_name=context.get("plan_name", ""),
+            plan_rules, _ = extract_plan_facts_v3(
                 plan_id=context["plan_id"],
+                plan_name=context.get("plan_name", ""),
                 doc_id=context["doc_id"]
             )
             update_plan_rules(context["plan_id"], plan_rules)

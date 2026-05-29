@@ -10,28 +10,11 @@ Usage:
     python extract_facts.py --force   # re-extract even if plan_rules already set
 """
 
-import json
 import os
 import sys
 
 from app.registry.registry import load_registry, update_plan_rules
-from app.ingestion.fact_extractor import extract_plan_facts
-
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-def find_spd_chunks(plan_id: str, doc_id: str) -> list[dict] | None:
-    """
-    Load processed chunks for a given plan's SPD document.
-    Returns list of chunk dicts, or None if file not found.
-    """
-    path = os.path.join("data", "processed", f"{plan_id}_{doc_id}_SPD.json")
-
-    if not os.path.exists(path):
-        return None
-
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+from app.ingestion.fact_extractor_v3 import extract_plan_facts_v3
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -78,22 +61,11 @@ def main(force: bool = False):
             skipped += 1
             continue
 
-        # Load chunk file
-        chunks = find_spd_chunks(plan_id, doc_id)
-
-        if chunks is None:
-            print(f"  Chunk file not found at data/processed/{plan_id}_{doc_id}_SPD.json — skipping\n")
-            failed += 1
-            continue
-
-        print(f"  Loaded {len(chunks)} chunks from processed file")
-
-        # Extract plan facts via Claude
+        # Extract plan facts via Claude (V3 searches vector DB directly — no chunk file needed)
         try:
-            plan_rules = extract_plan_facts(
-                chunks=chunks,
-                plan_name=plan_name,
+            plan_rules, _ = extract_plan_facts_v3(
                 plan_id=plan_id,
+                plan_name=plan_name,
                 doc_id=doc_id
             )
         except Exception as e:
