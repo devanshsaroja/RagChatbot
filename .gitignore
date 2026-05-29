@@ -12,8 +12,9 @@ __pycache__/
 # ChromaDB data
 data/vectordb/
 
-# Processed chunks
+# Processed data
 data/processed/
+data/facts/
 
 # Registry
 data/registry.json
