@@ -8,8 +8,8 @@ from app.storage.vector_store import (
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
-DEFAULT_TOP_K = 8
-MIN_SCORE_THRESHOLD = 0.3
+DEFAULT_TOP_K = 10
+MIN_SCORE_THRESHOLD = 0.0
 
 
 # ── Core Search ───────────────────────────────────────────────────────────────

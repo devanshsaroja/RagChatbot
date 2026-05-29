@@ -93,15 +93,20 @@ def parse_structured_response(text: str) -> dict:
 
     # Handle empty answer gracefully
     if not result["answer"]:
-        result["answer"] = (
-            "I could not find sufficiently relevant information "
-            "in the available documents to answer this question confidently.\n\n"
-            "Possible reasons:\n"
-            "• The relevant document may not have been ingested yet\n"
-            "• Try rephrasing with more specific terms\n"
-            "• If asking about a specific plan, select that plan as context"
-        )
-        result["confidence"] = "Low"
+        if text.strip():
+            # Claude gave a response but didn't include the ANSWER: label —
+            # use the raw text rather than discarding a real answer.
+            result["answer"] = text.strip()
+        else:
+            result["answer"] = (
+                "I could not find sufficiently relevant information "
+                "in the available documents to answer this question confidently.\n\n"
+                "Possible reasons:\n"
+                "• The relevant document may not have been ingested yet\n"
+                "• Try rephrasing with more specific terms\n"
+                "• If asking about a specific plan, select that plan as context"
+            )
+            result["confidence"] = "Low"
 
     return result
 
@@ -156,8 +161,9 @@ def run_agent(
         }
     ]
 
-    tool_calls_made = 0
-    final_response = ""
+    tool_calls_made       = 0
+    final_response        = ""
+    all_retrieval_scores  = []   # collects cosine scores across all retrieval calls
 
     if verbose:
         print(f"\n{'='*60}")
@@ -173,6 +179,7 @@ def run_agent(
         response = client.messages.create(
             model=MODEL,
             max_tokens=MAX_TOKENS,
+            temperature=0,
             system=SYSTEM_PROMPT,
             tools=TOOL_DEFINITIONS,
             messages=messages
@@ -223,16 +230,17 @@ def run_agent(
                         })
                         continue
 
-                    # Execute tool
-                    result = execute_tool(block.name, block.input)
+                    # Execute tool — returns (text_for_claude, retrieval_scores)
+                    tool_text, tool_scores = execute_tool(block.name, block.input)
+                    all_retrieval_scores.extend(tool_scores)
 
                     if verbose:
-                        print(f"  Result preview: {result[:150]}...")
+                        print(f"  Result preview: {tool_text[:150]}...")
 
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": block.id,
-                        "content": result
+                        "content": tool_text
                     })
 
             # Add tool results to messages
@@ -272,9 +280,25 @@ def run_agent(
                 print(f"Unexpected stop reason: {stop_reason}")
             break
 
-    # Parse structured response
+    # ── Compute score-based confidence ────────────────────────────────────────
+    if all_retrieval_scores:
+        avg = sum(all_retrieval_scores) / len(all_retrieval_scores)
+        confidence_pct   = round(avg * 100)
+        confidence_label = (
+            "High"   if avg >= 0.75 else
+            "Medium" if avg >= 0.35 else
+            "Low"
+        )
+    else:
+        confidence_pct   = 0
+        confidence_label = "Low"
+
+    # Parse structured response, then override confidence with score-based value
     parsed = parse_structured_response(final_response)
+    parsed["confidence"]      = confidence_label
+    parsed["confidence_pct"]  = confidence_pct
     parsed["tool_calls_made"] = tool_calls_made
+    parsed.pop("confidence_reason", None)   # no longer from Claude
 
     return parsed
 
@@ -301,8 +325,7 @@ if __name__ == "__main__":
     print(f"\nSOURCES:")
     for s in result["sources"]:
         print(f"  {s}")
-    print(f"\nCONFIDENCE: {result['confidence']}")
-    print(f"CONFIDENCE REASON: {result['confidence_reason']}")
+    print(f"\nCONFIDENCE: {result['confidence_pct']}%  ({result['confidence']})")
     print(f"Tool calls made: {result['tool_calls_made']}")
 
     # Test 2 — Generic question
@@ -318,5 +341,5 @@ if __name__ == "__main__":
     )
 
     print(f"\nANSWER:\n{result['answer']}")
-    print(f"\nCONFIDENCE: {result['confidence']}")
+    print(f"\nCONFIDENCE: {result['confidence_pct']}%  ({result['confidence']})")
     print(f"Tool calls made: {result['tool_calls_made']}")

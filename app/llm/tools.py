@@ -157,70 +157,69 @@ TOOL_DEFINITIONS = [
 
 # ── Tool Execution ────────────────────────────────────────────────────────────
 
-def execute_tool(tool_name: str, tool_input: dict) -> str:
+def execute_tool(tool_name: str, tool_input: dict) -> tuple[str, list[float]]:
     """
-    Execute a tool call from Claude and return formatted result.
+    Execute a tool call from Claude and return formatted result + retrieval scores.
 
     Args:
         tool_name:  Name of the tool Claude wants to call
         tool_input: Arguments Claude provided
 
     Returns:
-        Formatted string result to send back to Claude
+        Tuple of:
+          text   — formatted string result to send back to Claude
+          scores — list of cosine similarity scores from retrieval (empty for non-retrieval tools)
     """
 
     if tool_name == "retrieve_from_plan":
-        query = tool_input.get("query", "")
+        query   = tool_input.get("query", "")
         plan_id = tool_input.get("plan_id", "")
-        top_k = tool_input.get("top_k", 8)
+        top_k   = tool_input.get("top_k", 8)
 
         if not query or not plan_id:
-            return "Error: Both 'query' and 'plan_id' are required."
+            return "Error: Both 'query' and 'plan_id' are required.", []
 
-        results = retrieve_from_plan(
-            query=query,
-            plan_id=plan_id,
-            top_k=top_k
-        )
-        return format_results_for_claude(results)
+        results = retrieve_from_plan(query=query, plan_id=plan_id, top_k=top_k)
+        scores  = [r["score"] for r in results]
+        return format_results_for_claude(results), scores
 
     elif tool_name == "retrieve_generic":
         query = tool_input.get("query", "")
         top_k = tool_input.get("top_k", 8)
 
         if not query:
-            return "Error: 'query' is required."
+            return "Error: 'query' is required.", []
 
-        results = retrieve_generic(
-            query=query,
-            top_k=top_k
-        )
-        return format_results_for_claude(results)
+        results = retrieve_generic(query=query, top_k=top_k)
+        scores  = [r["score"] for r in results]
+        return format_results_for_claude(results), scores
 
     elif tool_name == "retrieve_all":
         query = tool_input.get("query", "")
         top_k = tool_input.get("top_k", 8)
 
         if not query:
-            return "Error: 'query' is required."
+            return "Error: 'query' is required.", []
 
-        results = retrieve_all(
-            query=query,
-            top_k=top_k
-        )
-        return format_results_for_claude(results)
+        results = retrieve_all(query=query, top_k=top_k)
+        scores  = [r["score"] for r in results]
+        return format_results_for_claude(results), scores
 
     elif tool_name == "enumerate_plans":
-        return _enumerate_plans()
+        return _enumerate_plans(), []
 
     elif tool_name == "get_plan_facts":
         plan_id = tool_input.get("plan_id", "")
         if not plan_id:
-            return "Error: 'plan_id' is required."
-        return _get_plan_facts(plan_id)
+            return "Error: 'plan_id' is required.", []
+        result = _get_plan_facts(plan_id)
+        # Structured facts are pre-verified — treat as highest-confidence source.
+        # Only assign a score when facts were actually found (not a "not found" response).
+        score = [1.0] if result.startswith("Pre-extracted plan facts for") else []
+        return result, score
 
     else:
-        return f"Error: Unknown tool '{tool_name}'."
+        return f"Error: Unknown tool '{tool_name}'.", []
 
 
 def _enumerate_plans() -> str:
