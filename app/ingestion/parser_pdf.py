@@ -1,6 +1,6 @@
 import re
 from collections import Counter
-import fitz  # PyMuPDF — used for Pass 1 only
+import pymupdf as fitz  # PyMuPDF — used for Pass 1 only
 import pymupdf4llm  # Used for Pass 2
 
 

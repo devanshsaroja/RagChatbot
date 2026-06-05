@@ -87,7 +87,7 @@ def save_chunks(chunks: list[dict], output_filename: str) -> str:
 
 # ── Main Entry Point ──────────────────────────────────────────────────────────
 
-def ingest_file(file_path: str, context: dict) -> dict:
+def ingest_file(file_path: str, context: dict, log_fn=None) -> dict:
     """
     Full ingestion pipeline for a single file.
 
@@ -106,6 +106,11 @@ def ingest_file(file_path: str, context: dict) -> dict:
             "stats":       dict
         }
     """
+    def _log(msg: str):
+        print(msg)
+        if log_fn:
+            log_fn(msg)
+
     # Validate file
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
@@ -117,59 +122,49 @@ def ingest_file(file_path: str, context: dict) -> dict:
             f"Supported: {list(SUPPORTED_EXTENSIONS.keys())}"
         )
 
-    print(f"\n{'='*50}")
-    print(f"Ingesting: {os.path.basename(file_path)}")
-    print(f"Type:      {ext}")
-    print(f"Tier:      {context['tier']}")
-    if context.get("plan_id"):
-        print(f"Plan:      {context['plan_name']} ({context['plan_id']})")
-    print(f"Doc type:  {context['doc_type']}")
-    print(f"{'='*50}")
+    _log(f"Ingesting: {os.path.basename(file_path)} ({context['doc_type']})")
 
     # Step 1 — Parse
-    print("\nStep 1/6 — Parsing document...")
+    _log("Step 1/6 — Parsing document…")
     parser_fn = SUPPORTED_EXTENSIONS[ext]
     parsed_blocks = parser_fn(file_path)
 
     # Step 2 — Chunk
-    print("\nStep 2/6 — Chunking blocks...")
+    _log("Step 2/6 — Chunking blocks…")
     chunks = chunk_all(parsed_blocks)
-    print(f"  Created {len(chunks)} chunks")
+    _log(f"  Created {len(chunks)} chunks")
 
     # Step 3 — Inject plan metadata
-    print("\nStep 3/6 — Injecting metadata...")
+    _log("Step 3/6 — Injecting metadata…")
     chunks = inject_plan_metadata(chunks, context)
-    print(f"  Metadata injected into all chunks")
 
     # Step 4 — Save
-    print("\nStep 4/6 — Saving chunks...")
+    _log("Step 4/6 — Saving chunks…")
     output_filename = get_output_filename(context)
     save_path = save_chunks(chunks, output_filename)
-    print(f"  Saved to: {save_path}")
 
     # Step 5 — Store in vector database
-    print("\nStep 5/6 — Storing in vector database...")
+    _log("Step 5/6 — Storing in vector database…")
     vector_stats = store_chunks(chunks)
-    print(f"  Stored:  {vector_stats['stored']}")
-    print(f"  Skipped: {vector_stats['skipped']}")
-    print(f"  Failed:  {vector_stats['failed']}")
+    _log(f"  Stored: {vector_stats['stored']}  Skipped: {vector_stats['skipped']}  Failed: {vector_stats['failed']}")
 
     # Step 6 — Extract plan facts (SPD only)
     if context.get("doc_type") == "SPD" and context.get("plan_id"):
-        print("\nStep 6/6 — Extracting plan facts...")
+        _log("Step 6/6 — Extracting plan facts…")
         try:
-            plan_rules, _ = extract_plan_facts_v3(
+            plan_rules, token_stats = extract_plan_facts_v3(
                 plan_id=context["plan_id"],
                 plan_name=context.get("plan_name", ""),
                 doc_id=context["doc_id"]
             )
             update_plan_rules(context["plan_id"], plan_rules)
-            print("  Plan facts extracted and saved to registry ✓")
+            _log("  Plan facts extracted and saved ✓")
         except Exception as e:
-            print(f"  Warning: fact extraction failed — {e}")
-            print("  Ingestion complete. Run extract_facts.py --force to retry.")
+            token_stats = {}
+            _log(f"  Warning: fact extraction failed — {e}")
     else:
-        print("\nStep 6/6 — Skipped (not an SPD)")
+        token_stats = {}
+        _log("Step 6/6 — Skipped (not an SPD)")
 
     # Build stats
     token_counts = [c["metadata"]["token_count"] for c in chunks]
@@ -182,20 +177,12 @@ def ingest_file(file_path: str, context: dict) -> dict:
         "save_path":        save_path,
         "vector_stored":    vector_stats["stored"],
         "vector_skipped":   vector_stats["skipped"],
-        "vector_failed":    vector_stats["failed"]
+        "vector_failed":    vector_stats["failed"],
+        "api_input_tokens":  token_stats.get("total_input_tokens", 0),
+        "api_output_tokens": token_stats.get("total_output_tokens", 0),
     }
 
-    print(f"\n{'='*50}")
-    print(f"✓ Ingestion complete")
-    print(f"  Blocks:   {stats['blocks_extracted']}")
-    print(f"  Chunks:   {stats['chunks_created']}")
-    print(f"  Tokens:   {stats['token_min']} min / "
-          f"{stats['token_max']} max / "
-          f"{stats['token_avg']} avg")
-    print(f"  Vectors:  {stats['vector_stored']} stored / "
-          f"{stats['vector_skipped']} skipped / "
-          f"{stats['vector_failed']} failed")
-    print(f"{'='*50}")
+    _log(f"✓ Ingestion complete — {stats['chunks_created']} chunks, {stats['vector_stored']} vectors")
 
 
     return {

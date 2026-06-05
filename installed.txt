@@ -1,0 +1,4 @@
+Package    Version
+---------- -------
+pip        26.1.1
+setuptools 82.0.1

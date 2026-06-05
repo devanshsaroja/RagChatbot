@@ -164,6 +164,8 @@ def run_agent(
     tool_calls_made       = 0
     final_response        = ""
     all_retrieval_scores  = []   # collects cosine scores across all retrieval calls
+    total_input_tokens    = 0
+    total_output_tokens   = 0
 
     if verbose:
         print(f"\n{'='*60}")
@@ -184,6 +186,9 @@ def run_agent(
             tools=TOOL_DEFINITIONS,
             messages=messages
         )
+
+        total_input_tokens  += response.usage.input_tokens
+        total_output_tokens += response.usage.output_tokens
 
         # Check stop reason
         stop_reason = response.stop_reason
@@ -298,6 +303,8 @@ def run_agent(
     parsed["confidence"]      = confidence_label
     parsed["confidence_pct"]  = confidence_pct
     parsed["tool_calls_made"] = tool_calls_made
+    parsed["input_tokens"]    = total_input_tokens
+    parsed["output_tokens"]   = total_output_tokens
     parsed.pop("confidence_reason", None)   # no longer from Claude
 
     return parsed

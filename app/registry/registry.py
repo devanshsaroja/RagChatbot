@@ -1,13 +1,15 @@
 import json
 import os
 import hashlib
+import threading
 from datetime import date
 
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
-REGISTRY_PATH = os.path.join("data", "registry.json")
-FACTS_DIR     = os.path.join("data", "facts")
+REGISTRY_PATH  = os.path.join("data", "registry.json")
+FACTS_DIR      = os.path.join("data", "facts")
+_registry_lock = threading.Lock()
 
 DOC_TYPES = [
     "SPD",
@@ -42,9 +44,10 @@ def save_registry(registry: dict):
     registry["meta"]["last_updated"] = str(date.today())
     os.makedirs(os.path.dirname(REGISTRY_PATH), exist_ok=True)
     tmp_path = REGISTRY_PATH + ".tmp"
-    with open(tmp_path, 'w', encoding='utf-8') as f:
-        json.dump(registry, f, indent=2, ensure_ascii=False)
-    os.replace(tmp_path, REGISTRY_PATH)  # atomic on both Windows and Linux
+    with _registry_lock:
+        with open(tmp_path, 'w', encoding='utf-8') as f:
+            json.dump(registry, f, indent=2, ensure_ascii=False)
+        os.replace(tmp_path, REGISTRY_PATH)  # atomic on both Windows and Linux
 
 
 def _empty_registry() -> dict:
@@ -404,6 +407,30 @@ def get_registry_summary() -> dict:
 
 
 # ── Remove Operations ─────────────────────────────────────────────────────────
+
+def delete_plan(plan_id: str) -> bool:
+    """
+    Delete an entire plan and cascade-remove the employer if it becomes empty.
+    Returns True if the plan existed, False otherwise.
+    """
+    registry = load_registry()
+    plan = registry["plans"].get(plan_id)
+    if not plan:
+        return False
+
+    employer_id = plan["employer_id"]
+    del registry["plans"][plan_id]
+
+    employer_has_plans = any(
+        p["employer_id"] == employer_id
+        for p in registry["plans"].values()
+    )
+    if not employer_has_plans:
+        registry["employers"].pop(employer_id, None)
+
+    save_registry(registry)
+    return True
+
 
 def remove_document_from_plan(plan_id: str, doc_id: str) -> bool:
     """
